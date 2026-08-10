@@ -1,6 +1,6 @@
 # Tea Mall
 
-茶叶电商平台学习项目：Vue3 + TypeScript + FastAPI + MySQL + Redis，前后端分离、单体仓库。
+茶叶电商平台：Vue3 + TypeScript + FastAPI + MySQL + Redis，前后端分离、单体仓库，支持 Docker Compose 一键部署。
 
 ## 功能（v1）
 
@@ -14,14 +14,75 @@
 
 - 前端：Vue3 / TypeScript / Vite / Vue Router / Pinia / Axios / Element Plus
 - 后端：Python / FastAPI / SQLAlchemy 2.x
-- 数据库：MySQL 8.0（本机）
-- 缓存：Redis（Docker，缓存分类与商品，TTL 5 分钟）
+- 数据库：MySQL 8.0（Docker 容器，数据持久化）
+- 缓存：Redis 8（Docker 容器，缓存分类与商品，TTL 5 分钟）
+- 部署：Docker / Docker Compose（nginx 托管前端并反向代理后端）
+
+## Docker 一键部署（推荐）
+
+只需安装 Docker Desktop，克隆仓库后即可运行完整平台（前端、后端、MySQL、Redis）。
+
+### 前置要求
+
+- Docker Desktop（Windows / macOS）或 Docker Engine + Docker Compose v2（Linux）
+
+### 快速开始
+
+```bash
+git clone <your-repo-url>
+cd tea-mall
+cp .env.example .env        # Windows: Copy-Item .env.example .env
+docker compose up -d
+```
+
+首次启动会自动构建前后端镜像、初始化 MySQL（建库建用户）、拉起 Redis，后端启动时自动创建数据表。
+
+### 访问地址
+
+| 服务 | 地址 |
+| --- | --- |
+| 前端 | http://localhost:8080 |
+| 后端 API | http://localhost:8000 |
+| 接口文档（Swagger） | http://localhost:8000/docs |
+| 健康检查 | http://localhost:8000/api/health |
+
+端口可通过 `.env` 中的 `FRONTEND_PORT` / `BACKEND_PORT` / `MYSQL_PORT` / `REDIS_PORT` 调整。
+
+### 停止与清理
+
+```bash
+docker compose down          # 停止容器（保留数据）
+docker compose down -v       # 停止并删除数据卷（会清空数据库与 Redis 数据，谨慎使用）
+```
+
+### 查看日志
+
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+### 初始化种子数据（可选）
+
+```bash
+docker compose exec backend python seed.py
+```
+
+创建默认管理员 `admin / admin123` 和示例分类、商品。
+
+### 数据持久化
+
+MySQL 数据、Redis 数据、后端上传的商品图片分别保存在命名卷 `mysql-data`、`redis-data`、`uploads`，重建容器不丢失。
+
+部署细节见 [docs/docker-deployment.md](docs/docker-deployment.md)。
 
 ## 目录结构
 
 ```text
 tea-mall
 ├── frontend          # 前端（Vue3 + Vite）
+│   ├── Dockerfile    # 多阶段构建：Node 构建 + nginx 运行
+│   ├── nginx.conf    # SPA 托管 + /api、/uploads 反向代理
 │   └── src
 │       ├── api       # Axios 封装与接口
 │       ├── components# 通用组件
@@ -30,6 +91,7 @@ tea-mall
 │       ├── types     # TypeScript 类型
 │       └── views     # 页面（含 admin/ 管理端）
 ├── backend           # 后端（FastAPI）
+│   ├── Dockerfile    # Python 3.13 运行镜像
 │   └── app
 │       ├── core      # 密码哈希、JWT、权限依赖
 │       ├── models    # ORM 模型
@@ -37,21 +99,18 @@ tea-mall
 │       ├── routers   # 路由
 │       ├── services  # 业务逻辑
 │       └── main.py   # 应用入口
-├── sql               # 建库脚本
+├── database          # 容器初始化 SQL（挂载到 MySQL 首次启动）
+├── sql               # 本地建库脚本
 ├── docs/development  # 阶段任务表与依赖关系
-├── docker-compose.yml
+├── docker-compose.yml# 四服务编排（frontend/backend/mysql/redis）
+├── .env.example      # 环境变量示例（复制为 .env）
 ├── README.md
 └── AGENTS.md
 ```
 
-## 环境要求
+## 本地开发
 
-- Python 3.12+
-- Node.js 20+
-- MySQL 8.0（本机安装并已启动）
-- Docker（用于运行 Redis）
-
-## 启动步骤（从零到可访问）
+本地开发需要 Python 3.12+、Node.js 20+、本机 MySQL 8.0；Redis 用 Docker 启动。
 
 ### 1. 初始化数据库
 
@@ -64,7 +123,7 @@ mysql -u root -p < sql/init.sql
 ### 2. 启动 Redis
 
 ```powershell
-docker compose up -d
+docker compose up -d redis
 ```
 
 ### 3. 启动后端（8000 端口）
@@ -86,7 +145,7 @@ uvicorn app.main:app --reload
 python seed.py
 ```
 
-创建默认管理员 `admin / admin123` 和 5 个分类、10 个示例茶叶商品。
+创建默认管理员 `admin / admin123` 和示例分类、商品。
 
 ### 5. 启动前端（5173 端口）
 
@@ -121,6 +180,7 @@ npm run build
 
 ## 开发文档
 
+- Docker 部署详解：[docs/docker-deployment.md](docs/docker-deployment.md)
 - 阶段任务表：[docs/development/roadmap.md](docs/development/roadmap.md)
 - 模块依赖关系：[docs/development/dependency-tree.md](docs/development/dependency-tree.md)
 - 开发规则：[AGENTS.md](AGENTS.md)
