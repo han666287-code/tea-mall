@@ -3,21 +3,30 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from redis import Redis
 from sqlalchemy import text
 
-from app.config import settings
+from app.config import UPLOAD_DIR, settings
 from app.database import Base, engine
+from app.routers import auth, categories, products
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Phase 0：启动时创建尚未存在的表（ORM 模型从 Phase 1 开始添加）
+    # 启动时创建尚未存在的表
     Base.metadata.create_all(bind=engine)
     yield
 
 
 app = FastAPI(title="Tea Mall API", lifespan=lifespan)
+app.include_router(auth.router)
+app.include_router(categories.router)
+app.include_router(products.router)
+
+# 商品图片静态文件服务
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/")

@@ -58,6 +58,14 @@ uvicorn app.main:app --reload
 
 接口文档：http://localhost:8000/docs
 
+可选：创建默认管理员账号（首次执行）
+
+```powershell
+python seed.py
+```
+
+默认管理员：`admin / admin123`（本地学习用途，请勿用于生产）
+
 ### 4. 启动前端（5173 端口）
 
 ```powershell
