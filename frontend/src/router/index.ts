@@ -59,22 +59,26 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/admin/categories',
-    name: 'admin-categories',
-    component: () => import('@/views/admin/CategoryManageView.vue'),
+    path: '/admin',
+    component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/admin/products',
-    name: 'admin-products',
-    component: () => import('@/views/admin/ProductManageView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/admin/orders',
-    name: 'admin-orders',
-    component: () => import('@/views/admin/OrderManageView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: 'categories',
+        name: 'admin-categories',
+        component: () => import('@/views/admin/CategoryManageView.vue'),
+      },
+      {
+        path: 'products',
+        name: 'admin-products',
+        component: () => import('@/views/admin/ProductManageView.vue'),
+      },
+      {
+        path: 'orders',
+        name: 'admin-orders',
+        component: () => import('@/views/admin/OrderManageView.vue'),
+      },
+    ],
   },
 ]
 

@@ -1,32 +1,45 @@
 <template>
-  <div class="admin-page">
-    <AppHeader />
-    <div class="admin-content">
-      <div class="admin-header">
-        <h2>商品管理</h2>
-        <el-button type="primary" @click="openCreate">新增商品</el-button>
+  <div class="product-manage">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">商品管理</h1>
+        <p class="page-sub">管理商品信息、库存与上下架状态</p>
       </div>
+      <el-button type="primary" @click="openCreate">
+        <el-icon><Plus /></el-icon>
+        新增商品
+      </el-button>
+    </div>
 
-      <el-table v-loading="loading" :data="products" border stripe>
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column label="图片" width="80">
+    <div class="panel">
+      <div class="panel-toolbar">
+        <span class="panel-count">共 {{ total }} 款商品</span>
+      </div>
+      <el-table v-loading="loading" :data="products" class="admin-table">
+        <el-table-column prop="id" label="ID" width="70" />
+        <el-table-column label="图片" width="84">
           <template #default="{ row }">
-            <el-image
-              v-if="row.image_url"
-              :src="row.image_url"
-              fit="cover"
-              style="width: 50px; height: 50px; border-radius: 4px"
-            />
-            <span v-else class="no-image">无</span>
+            <el-image v-if="row.image_url" :src="row.image_url" fit="cover" class="thumb" />
+            <div v-else class="thumb thumb-ph">无图</div>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="名称" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="category_name" label="分类" width="100" />
-        <el-table-column label="价格" width="100">
-          <template #default="{ row }">¥{{ Number(row.price).toFixed(2) }}</template>
+        <el-table-column prop="name" label="名称" min-width="170" show-overflow-tooltip />
+        <el-table-column label="分类" width="120">
+          <template #default="{ row }">
+            <span class="cat-tag">{{ row.category_name || '-' }}</span>
+          </template>
         </el-table-column>
-        <el-table-column prop="stock" label="库存" width="80" />
-        <el-table-column label="上架" width="80">
+        <el-table-column label="价格" width="110">
+          <template #default="{ row }">
+            <span class="price-cell">¥{{ Number(row.price).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="库存" width="100">
+          <template #default="{ row }">
+            <span class="stock-cell" :class="{ low: row.stock <= 10 }">{{ row.stock }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="上架" width="90">
           <template #default="{ row }">
             <el-switch
               :model-value="row.is_on_sale"
@@ -34,73 +47,78 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="170" align="right">
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-
       <PaginationBar
         :total="total"
         :page="page"
         :page-size="pageSize"
         @update:page="onPageChange"
       />
-
-      <el-dialog v-model="dialogVisible" :title="editingId ? '编辑商品' : '新增商品'" width="560px">
-        <el-form :model="form" label-width="80px">
-          <el-form-item label="商品名称">
-            <el-input v-model="form.name" placeholder="请输入商品名称" />
-          </el-form-item>
-          <el-form-item label="分类">
-            <el-select v-model="form.category_id" placeholder="请选择分类" style="width: 100%">
-              <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="价格">
-            <el-input-number v-model="form.price" :min="0" :precision="2" :step="10" />
-          </el-form-item>
-          <el-form-item label="库存">
-            <el-input-number v-model="form.stock" :min="0" />
-          </el-form-item>
-          <el-form-item label="描述">
-            <el-input v-model="form.description" type="textarea" :rows="3" placeholder="商品描述" />
-          </el-form-item>
-          <el-form-item label="上架">
-            <el-switch v-model="form.is_on_sale" />
-          </el-form-item>
-          <el-form-item label="图片">
-            <el-upload
-              :auto-upload="false"
-              :limit="1"
-              accept="image/*"
-              :on-change="handleFileChange"
-            >
-              <el-button>选择图片</el-button>
-            </el-upload>
-            <div v-if="form.image_url || selectedFile" class="upload-preview">
-              <el-image
-                v-if="form.image_url"
-                :src="form.image_url"
-                fit="cover"
-                style="width: 80px; height: 80px; border-radius: 4px"
-              />
-              <span v-if="selectedFile">{{ selectedFile.name }}</span>
-            </div>
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
-        </template>
-      </el-dialog>
     </div>
+
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editingId ? '编辑商品' : '新增商品'"
+      width="560px"
+      align-center
+    >
+      <el-form :model="form" label-width="84px">
+        <el-form-item label="商品名称">
+          <el-input v-model="form.name" placeholder="请输入商品名称" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select v-model="form.category_id" placeholder="请选择分类" style="width: 100%">
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input-number v-model="form.price" :min="0" :precision="2" :step="10" />
+        </el-form-item>
+        <el-form-item label="库存">
+          <el-input-number v-model="form.stock" :min="0" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="商品描述" />
+        </el-form-item>
+        <el-form-item label="上架">
+          <el-switch v-model="form.is_on_sale" />
+        </el-form-item>
+        <el-form-item label="图片">
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            accept="image/*"
+            :on-change="handleFileChange"
+          >
+            <el-button>选择图片</el-button>
+          </el-upload>
+          <div v-if="form.image_url || selectedFile" class="upload-preview">
+            <el-image
+              v-if="form.image_url"
+              :src="form.image_url"
+              fit="cover"
+              class="upload-img"
+            />
+            <span v-if="selectedFile" class="upload-name">{{ selectedFile.name }}</span>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
@@ -113,7 +131,6 @@ import {
   updateProduct,
   uploadProductImage,
 } from '@/api/products'
-import AppHeader from '@/components/AppHeader.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
 import type { Category } from '@/types/category'
 import type { Product } from '@/types/product'
@@ -256,26 +273,92 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.admin-content {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.admin-header {
+.page-head {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  gap: 20px;
+  margin-bottom: 24px;
 }
 
-.admin-header h2 {
+.page-title {
   margin: 0;
+  font-family: var(--tea-font-serif);
+  font-size: 26px;
+  letter-spacing: 0.08em;
+  color: var(--tea-ink);
 }
 
-.no-image {
-  color: #999;
+.page-sub {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--tea-muted);
+}
+
+.panel {
+  background: var(--tea-surface);
+  border: 1px solid var(--tea-line-soft);
+  border-radius: var(--tea-radius);
+  box-shadow: var(--tea-shadow-sm);
+  overflow: hidden;
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--tea-line-soft);
+  background: #fbf8f1;
+}
+
+.panel-count {
+  font-size: 13px;
+  color: var(--tea-muted);
+}
+
+.admin-table {
+  padding: 0 8px;
+}
+
+.thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--tea-gold-soft);
+}
+
+.thumb-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--tea-muted);
+}
+
+.cat-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
   font-size: 12px;
+  color: var(--tea-primary);
+  background: var(--tea-primary-soft);
+}
+
+.price-cell {
+  font-weight: 600;
+  color: var(--tea-price);
+  font-variant-numeric: tabular-nums;
+}
+
+.stock-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--tea-ink-2);
+}
+
+.stock-cell.low {
+  color: var(--tea-price);
+  font-weight: 600;
 }
 
 .upload-preview {
@@ -283,7 +366,21 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   margin-top: 8px;
-  color: #666;
+  color: var(--tea-muted);
   font-size: 13px;
+}
+
+.upload-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid var(--tea-line-soft);
+}
+
+.upload-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
