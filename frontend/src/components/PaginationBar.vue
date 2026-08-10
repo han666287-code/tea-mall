@@ -25,6 +25,6 @@ function handleChange(page: number) {
 .pagination-bar {
   display: flex;
   justify-content: center;
-  margin-top: 24px;
+  margin-top: 36px;
 }
 </style>

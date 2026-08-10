@@ -1,7 +1,11 @@
 <template>
   <div class="app">
     <main class="app-main">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="tea-fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
   </div>
 </template>
@@ -26,7 +30,7 @@ onMounted(() => {
 <style scoped>
 .app {
   min-height: 100vh;
-  background: #faf7f2;
+  background: var(--tea-bg);
 }
 
 .app-main {

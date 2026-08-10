@@ -1,0 +1,219 @@
+/* TeaMall 设计系统：浅色雅致茶风（纯 CSS，零新增依赖） */
+:root {
+  /* 色板 */
+  --tea-bg: #f6f2ea;
+  --tea-bg-deep: #efe7d8;
+  --tea-surface: #ffffff;
+  --tea-ink: #262a24;
+  --tea-ink-2: #494e44;
+  --tea-muted: #8b887c;
+  --tea-primary: #2f5e43;
+  --tea-primary-deep: #244a34;
+  --tea-primary-soft: #e9f1eb;
+  --tea-gold: #a97e3a;
+  --tea-gold-deep: #8f6a2c;
+  --tea-gold-soft: #f4ead4;
+  --tea-price: #b0452f;
+  --tea-line: #e7e0d1;
+  --tea-line-soft: #efe9dc;
+
+  /* 圆角与阴影 */
+  --tea-radius-sm: 8px;
+  --tea-radius: 14px;
+  --tea-radius-lg: 22px;
+  --tea-shadow-sm: 0 2px 10px rgba(58, 66, 46, 0.06);
+  --tea-shadow: 0 14px 34px rgba(58, 66, 46, 0.1);
+  --tea-shadow-lg: 0 28px 64px rgba(44, 52, 38, 0.16);
+
+  /* 字体 */
+  --tea-font-serif: Georgia, 'Times New Roman', 'Noto Serif SC', 'Songti SC',
+    'SimSun', serif;
+  --tea-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Element Plus 主题覆盖 */
+  --el-color-primary: #2f5e43;
+  --el-color-primary-dark-2: #244a34;
+  --el-color-primary-light-3: #5f8269;
+  --el-color-primary-light-5: #8da894;
+  --el-color-primary-light-7: #becfbe;
+  --el-color-primary-light-8: #d6e2d4;
+  --el-color-primary-light-9: #ecf2ea;
+  --el-color-success: #4e7a55;
+  --el-color-warning: #b98a3f;
+  --el-color-danger: #b0452f;
+  --el-color-error: #b0452f;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-font-family: var(--tea-font-sans);
+  --el-text-color-primary: #262a24;
+  --el-text-color-regular: #494e44;
+  --el-text-color-secondary: #8b887c;
+  --el-text-color-placeholder: #a8a295;
+  --el-border-color: #e7e0d1;
+  --el-border-color-light: #ece5d7;
+  --el-border-color-lighter: #f1ecdf;
+  --el-border-color-extra-light: #f5f1e6;
+  --el-fill-color-light: #f7f3ea;
+  --el-fill-color-lighter: #faf7f0;
+  --el-fill-color-extra-light: #fcfaf5;
+  --el-mask-color: rgba(38, 42, 36, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--tea-font-sans);
+  color: var(--tea-ink);
+  background: var(--tea-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--tea-primary);
+}
+
+::selection {
+  background: rgba(47, 94, 67, 0.18);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cfc6b2;
+  border-radius: 8px;
+  border: 2px solid var(--tea-bg);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Element Plus 细节打磨 */
+.el-button {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--tea-primary);
+  --el-button-border-color: var(--tea-primary);
+  --el-button-hover-bg-color: #3a7350;
+  --el-button-hover-border-color: #3a7350;
+  --el-button-active-bg-color: var(--tea-primary-deep);
+  --el-button-active-border-color: var(--tea-primary-deep);
+  box-shadow: 0 6px 16px rgba(47, 94, 67, 0.24);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(47, 94, 67, 0.3);
+}
+
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--tea-line) inset;
+  transition: box-shadow 0.2s ease;
+}
+
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  box-shadow:
+    0 0 0 1px var(--tea-gold) inset,
+    0 6px 18px rgba(169, 126, 58, 0.14);
+}
+
+.el-table {
+  --el-table-header-bg-color: #f7f3ea;
+  --el-table-header-text-color: #494e44;
+  --el-table-border-color: #efe9dc;
+  --el-table-row-hover-bg-color: #faf6ec;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.el-dialog {
+  border-radius: var(--tea-radius-lg);
+  box-shadow: var(--tea-shadow-lg);
+}
+
+.el-dialog__title {
+  font-family: var(--tea-font-serif);
+  font-weight: 600;
+}
+
+.el-tag {
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.el-pagination {
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: var(--tea-gold);
+}
+
+/* 通用布局工具类 */
+.tea-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.tea-animate {
+  animation: tea-fade-up 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes tea-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 路由切换过渡 */
+.tea-fade-enter-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.tea-fade-leave-active {
+  transition: opacity 0.14s ease;
+}
+
+.tea-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.tea-fade-leave-to {
+  opacity: 0;
+}

@@ -1,23 +1,36 @@
 <template>
   <div class="cashier-page">
     <AppHeader />
-    <div class="cashier-content">
-      <h2 class="page-title">收银台</h2>
+    <div class="tea-page cashier-body">
+      <div class="page-head">
+        <p class="page-eyebrow">CHECKOUT</p>
+        <h1 class="page-title">收银台</h1>
+      </div>
       <div v-if="order" class="cashier-card">
-        <div class="cashier-info">
-          <p>订单号：{{ order.order_no }}</p>
-          <p>下单时间：{{ order.created_at }}</p>
-          <p>收货人：{{ order.receiver_name }} / {{ order.receiver_phone }}</p>
-          <p>收货地址：{{ order.receiver_address }}</p>
-          <p>
-            应付金额：<b class="amount">¥{{ Number(order.total_amount).toFixed(2) }}</b>
-          </p>
+        <div class="pay-amount">
+          <span class="pay-label">应付金额</span>
+          <div class="pay-value">¥{{ Number(order.total_amount).toFixed(2) }}</div>
+        </div>
+        <div class="pay-info">
+          <div class="pay-row"><span>订单号</span><b>{{ order.order_no }}</b></div>
+          <div class="pay-row">
+            <span>下单时间</span>
+            <b>{{ formatTime(order.created_at) }}</b>
+          </div>
+          <div class="pay-row">
+            <span>收货人</span>
+            <b>{{ order.receiver_name }} / {{ order.receiver_phone }}</b>
+          </div>
+          <div class="pay-row">
+            <span>收货地址</span>
+            <b>{{ order.receiver_address }}</b>
+          </div>
         </div>
         <div v-if="order.status === 'pending'" class="cashier-actions">
+          <el-button size="large" @click="handleCancel">取消订单</el-button>
           <el-button type="primary" size="large" :loading="paying" @click="handlePay">
             确认支付
           </el-button>
-          <el-button size="large" @click="handleCancel">取消订单</el-button>
         </div>
         <el-alert v-else type="info" :closable="false" show-icon>
           该订单当前状态为「{{ ORDER_STATUS_TEXT[order.status] }}」，无需支付
@@ -25,6 +38,7 @@
       </div>
       <EmptyState v-else-if="notFound" message="订单不存在" />
     </div>
+    <AppFooter />
   </div>
 </template>
 
@@ -43,6 +57,13 @@ const router = useRouter()
 const order = ref<Order | null>(null)
 const notFound = ref(false)
 const paying = ref(false)
+
+function formatTime(value: string) {
+  const date = new Date(value.replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 onMounted(async () => {
   try {
@@ -74,36 +95,119 @@ async function handleCancel() {
 </script>
 
 <style scoped>
-.cashier-content {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 20px;
+.cashier-body {
+  padding-top: 40px;
+  padding-bottom: 24px;
+  max-width: 720px;
+}
+
+.page-head {
+  margin-bottom: 28px;
+}
+
+.page-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.4em;
+  color: var(--tea-gold);
 }
 
 .page-title {
-  margin: 0 0 16px;
+  margin: 0;
+  font-family: var(--tea-font-serif);
+  font-size: 30px;
+  letter-spacing: 0.1em;
+  color: var(--tea-ink);
 }
 
 .cashier-card {
-  background: #fff;
-  padding: 24px;
-  border-radius: 8px;
+  background: var(--tea-surface);
+  border: 1px solid var(--tea-line-soft);
+  border-radius: var(--tea-radius-lg);
+  box-shadow: var(--tea-shadow-sm);
+  padding: 34px;
 }
 
-.cashier-info {
-  color: #333;
-  line-height: 2;
-  margin-bottom: 20px;
+.pay-amount {
+  padding: 26px;
+  margin-bottom: 22px;
+  text-align: center;
+  border-radius: var(--tea-radius);
+  background:
+    radial-gradient(420px 160px at 50% -30%, rgba(169, 126, 58, 0.2), transparent 70%),
+    linear-gradient(135deg, #1c3a2a, #2f5e43);
+  color: #f6f2ea;
 }
 
-.amount {
-  color: #d4380d;
-  font-size: 26px;
+.pay-label {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: rgba(246, 242, 234, 0.7);
+}
+
+.pay-value {
+  margin-top: 10px;
+  font-family: var(--tea-font-sans);
+  font-variant-numeric: tabular-nums;
+  font-size: 40px;
+  font-weight: 700;
+  color: #d9b877;
+}
+
+.pay-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+  border: 1px solid var(--tea-line-soft);
+  border-radius: var(--tea-radius);
+  background: #fbf8f1;
+  margin-bottom: 24px;
+}
+
+.pay-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pay-row span {
+  color: var(--tea-muted);
+  white-space: nowrap;
+}
+
+.pay-row b {
+  color: var(--tea-ink);
+  text-align: right;
+  font-weight: 500;
 }
 
 .cashier-actions {
   display: flex;
-  gap: 12px;
   justify-content: flex-end;
+  gap: 14px;
+}
+
+.cashier-actions .el-button {
+  min-width: 130px;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 560px) {
+  .pay-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .pay-row b {
+    text-align: left;
+  }
+
+  .cashier-actions {
+    flex-direction: column-reverse;
+  }
 }
 </style>

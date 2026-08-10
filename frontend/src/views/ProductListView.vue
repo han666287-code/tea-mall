@@ -1,27 +1,43 @@
 <template>
   <div class="product-list-page">
     <AppHeader />
-    <div class="list-content">
-      <div class="filter-bar">
-        <el-select
-          v-model="categoryId"
-          style="width: 180px"
-          @change="applyFilter"
-        >
-          <el-option label="全部商品" value="" />
-          <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-        </el-select>
-        <el-input
-          v-model="keyword"
-          placeholder="搜索商品名称或描述"
-          clearable
-          style="width: 260px"
-          @keyup.enter="applyFilter"
-          @clear="applyFilter"
-        />
-        <el-button type="primary" @click="applyFilter">搜索</el-button>
+
+    <div class="page-hero">
+      <div class="tea-page">
+        <p class="hero-eyebrow">TEAMALL · COLLECTION</p>
+        <h1 class="hero-title">全部好茶</h1>
+        <p class="hero-sub">按茶系与风味，找到属于你的那一杯</p>
       </div>
-      <div v-loading="loading">
+    </div>
+
+    <div class="tea-page list-body">
+      <div class="filter-card">
+        <div class="filter-item">
+          <span class="filter-label">茶系</span>
+          <el-select v-model="categoryId" placeholder="全部商品" @change="applyFilter">
+            <el-option label="全部商品" value="" />
+            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </div>
+        <div class="filter-item grow">
+          <span class="filter-label">搜索</span>
+          <el-input
+            v-model="keyword"
+            placeholder="搜索商品名称或描述"
+            clearable
+            @keyup.enter="applyFilter"
+            @clear="applyFilter"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
+        <el-button type="primary" @click="applyFilter">搜索</el-button>
+        <span class="result-count">共 {{ total }} 款好茶</span>
+      </div>
+
+      <div v-loading="loading" class="results">
         <div v-if="products.length" class="product-grid">
           <ProductCard v-for="product in products" :key="product.id" :product="product" />
         </div>
@@ -34,15 +50,18 @@
         @update:page="onPageChange"
       />
     </div>
+    <AppFooter />
   </div>
 </template>
 
 <script setup lang="ts">
+import { Search } from '@element-plus/icons-vue'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getCategories } from '@/api/categories'
 import { getProducts, type ProductQuery } from '@/api/products'
+import AppFooter from '@/components/AppFooter.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
@@ -118,27 +137,102 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.list-content {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 20px;
+.page-hero {
+  padding: 64px 0;
+  background:
+    radial-gradient(760px 280px at 88% -30%, rgba(169, 126, 58, 0.24), transparent 60%),
+    linear-gradient(150deg, #1c3a2a 0%, #2f5e43 70%, #35684b 100%);
+  color: #f6f2ea;
 }
 
-.filter-bar {
+.hero-eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.42em;
+  color: #d9b877;
+}
+
+.hero-title {
+  margin: 0;
+  font-family: var(--tea-font-serif);
+  font-size: 36px;
+  letter-spacing: 0.1em;
+}
+
+.hero-sub {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: rgba(246, 242, 234, 0.72);
+}
+
+.list-body {
+  padding-top: 32px;
+  padding-bottom: 24px;
+}
+
+.filter-card {
   display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+  margin-bottom: 28px;
+  background: var(--tea-surface);
+  border: 1px solid var(--tea-line-soft);
+  border-radius: var(--tea-radius);
+  box-shadow: var(--tea-shadow-sm);
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-item.grow {
+  flex: 1;
+  min-width: 220px;
+}
+
+.filter-item :deep(.el-select),
+.filter-item :deep(.el-input) {
+  width: 190px;
+}
+
+.filter-item.grow :deep(.el-input) {
+  width: 100%;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: var(--tea-muted);
+  white-space: nowrap;
+}
+
+.result-count {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--tea-muted);
+}
+
+.results {
+  min-height: 200px;
 }
 
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 22px;
 }
 
 @media (max-width: 900px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .result-count {
+    margin-left: 0;
+    width: 100%;
   }
 }
 </style>
