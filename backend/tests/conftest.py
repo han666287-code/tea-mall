@@ -9,7 +9,14 @@ from sqlalchemy import delete, select
 from app.core.security import hash_password
 from app.database import Base, SessionLocal, engine
 from app.main import app
-from app.models import CartItem, Category, Product, User  # noqa: F401  注册全部模型
+from app.models import (  # noqa: F401  注册全部模型
+    CartItem,
+    Category,
+    Order,
+    OrderItem,
+    Product,
+    User,
+)
 from app.services import cache
 
 client = TestClient(app)
@@ -40,6 +47,8 @@ def prepare_database():
     yield
     with SessionLocal() as db:
         # 只清理测试创建的数据（名称以 test 开头），不影响种子数据
+        db.execute(delete(OrderItem))
+        db.execute(delete(Order))
         db.execute(delete(CartItem))
         db.execute(delete(Product).where(Product.name.like("test%")))
         db.execute(delete(Category).where(Category.name.like("test%")))

@@ -17,6 +17,7 @@
             购物车
           </el-badge>
         </router-link>
+        <router-link v-if="authStore.user" to="/orders">我的订单</router-link>
         <template v-if="authStore.user?.role === 'admin'">
           <router-link to="/admin/categories">分类管理</router-link>
           <router-link to="/admin/products">商品管理</router-link>

@@ -50,6 +50,7 @@
           共 {{ cartStore.totalQuantity }} 件，合计
           <b class="cart-total-price">¥{{ cartStore.totalPrice.toFixed(2) }}</b>
         </span>
+        <el-button type="primary" size="large" @click="goCheckout">去结算</el-button>
       </div>
     </div>
   </div>
@@ -57,6 +58,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 
 import AppHeader from '@/components/AppHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -64,6 +66,11 @@ import { useCartStore } from '@/store/cart'
 import type { CartItem } from '@/types/cart'
 
 const cartStore = useCartStore()
+const router = useRouter()
+
+function goCheckout() {
+  router.push('/checkout')
+}
 
 function handleQuantity(row: CartItem, value: number | undefined) {
   if (value !== undefined && value >= 1) {
@@ -122,6 +129,10 @@ async function handleRemove(row: CartItem) {
 .cart-footer {
   margin-top: 20px;
   text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
 }
 
 .cart-total-price {
