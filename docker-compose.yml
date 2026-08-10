@@ -1,0 +1,13 @@
+# 本地开发环境：仅启动 Redis
+services:
+  redis:
+    image: redis:latest
+    container_name: tea-mall-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+volumes:
+  redis-data:

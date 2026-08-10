@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# 环境变量与本地配置
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+*.local
+
+# 上传的商品图片
+backend/uploads/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
