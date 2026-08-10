@@ -15,10 +15,12 @@
           {{ category.name }}
         </el-button>
       </div>
-      <div v-if="products.length" class="product-grid">
-        <ProductCard v-for="product in products" :key="product.id" :product="product" />
+      <div v-loading="loading">
+        <div v-if="products.length" class="product-grid">
+          <ProductCard v-for="product in products" :key="product.id" :product="product" />
+        </div>
+        <EmptyState v-else message="暂无商品" />
       </div>
-      <EmptyState v-else message="暂无商品" />
       <PaginationBar
         :total="total"
         :page="page"
@@ -47,6 +49,7 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = 12
 const activeCategoryId = ref<number | null>(null)
+const loading = ref(false)
 
 async function loadCategories() {
   const { data } = await getCategories()
@@ -54,13 +57,18 @@ async function loadCategories() {
 }
 
 async function loadProducts() {
-  const { data } = await getProducts({
-    category_id: activeCategoryId.value ?? undefined,
-    page: page.value,
-    page_size: pageSize,
-  })
-  products.value = data.items
-  total.value = data.total
+  loading.value = true
+  try {
+    const { data } = await getProducts({
+      category_id: activeCategoryId.value ?? undefined,
+      page: page.value,
+      page_size: pageSize,
+    })
+    products.value = data.items
+    total.value = data.total
+  } finally {
+    loading.value = false
+  }
 }
 
 function selectCategory(categoryId: number | null) {

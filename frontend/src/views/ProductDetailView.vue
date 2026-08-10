@@ -3,7 +3,7 @@
     <AppHeader />
     <div class="detail-content">
       <el-button link class="back-btn" @click="router.back()">← 返回</el-button>
-      <div v-if="product" class="detail-card">
+      <div v-if="product" v-loading="loading" class="detail-card">
         <div class="detail-image">
           <el-image v-if="product.image_url" :src="product.image_url" fit="cover" class="detail-img" />
           <div v-else class="detail-img-placeholder">暂无图片</div>
@@ -48,6 +48,7 @@ const product = ref<Product | null>(null)
 const notFound = ref(false)
 const buyQuantity = ref(1)
 const adding = ref(false)
+const loading = ref(true)
 
 const priceText = computed(() =>
   product.value ? Number(product.value.price).toFixed(2) : '0.00',
@@ -59,6 +60,8 @@ onMounted(async () => {
     product.value = data
   } catch {
     notFound.value = true
+  } finally {
+    loading.value = false
   }
 })
 

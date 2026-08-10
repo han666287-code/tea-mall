@@ -7,7 +7,7 @@
         <el-button type="primary" @click="openCreate">新增分类</el-button>
       </div>
 
-      <el-table :data="categories" border stripe>
+      <el-table v-loading="loading" :data="categories" border stripe>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" label="分类名称" />
         <el-table-column prop="sort_order" label="排序" width="90" />
@@ -51,10 +51,16 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const form = reactive({ name: '', sort_order: 0 })
+const loading = ref(false)
 
 async function load() {
-  const { data } = await getCategories()
-  categories.value = data
+  loading.value = true
+  try {
+    const { data } = await getCategories()
+    categories.value = data
+  } finally {
+    loading.value = false
+  }
 }
 
 function openCreate() {

@@ -21,6 +21,7 @@
         type="primary"
         size="small"
         :disabled="product.stock <= 0"
+        :loading="adding"
         @click.stop="handleAddToCart"
       >
         加入购物车
@@ -31,7 +32,7 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/store/auth'
@@ -42,6 +43,7 @@ const props = defineProps<{ product: Product }>()
 const router = useRouter()
 const authStore = useAuthStore()
 const cartStore = useCartStore()
+const adding = ref(false)
 
 const priceText = computed(() => Number(props.product.price).toFixed(2))
 
@@ -55,8 +57,13 @@ async function handleAddToCart() {
     router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
     return
   }
-  await cartStore.addToCart(props.product.id, 1)
-  ElMessage.success('已加入购物车')
+  adding.value = true
+  try {
+    await cartStore.addToCart(props.product.id, 1)
+    ElMessage.success('已加入购物车')
+  } finally {
+    adding.value = false
+  }
 }
 </script>
 

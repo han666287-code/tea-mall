@@ -3,7 +3,8 @@
     <AppHeader />
     <div class="cart-content">
       <h2 class="cart-title">我的购物车</h2>
-      <el-table v-if="cartStore.items.length" :data="cartStore.items" border stripe>
+      <div v-loading="cartStore.loading">
+        <el-table v-if="cartStore.items.length" :data="cartStore.items" border stripe>
         <el-table-column label="商品" min-width="240">
           <template #default="{ row }">
             <div class="cart-product">
@@ -43,8 +44,9 @@
             <el-button size="small" type="danger" @click="handleRemove(row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
-      <EmptyState v-else message="购物车还是空的，去逛逛茶叶吧" />
+        </el-table>
+        <EmptyState v-else message="购物车还是空的，去逛逛茶叶吧" />
+      </div>
       <div v-if="cartStore.items.length" class="cart-footer">
         <span class="cart-total">
           共 {{ cartStore.totalQuantity }} 件，合计

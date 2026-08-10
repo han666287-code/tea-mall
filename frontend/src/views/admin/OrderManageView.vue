@@ -19,7 +19,7 @@
         </el-select>
       </div>
 
-      <el-table :data="orders" border stripe>
+      <el-table v-loading="loading" :data="orders" border stripe>
         <el-table-column prop="order_no" label="订单号" min-width="190" />
         <el-table-column prop="username" label="买家" width="120" />
         <el-table-column label="状态" width="100">
@@ -121,18 +121,24 @@ const pageSize = 10
 const statusFilter = ref('')
 const detailVisible = ref(false)
 const detailOrder = ref<Order | null>(null)
+const loading = ref(false)
 
 async function load() {
-  const params: { status?: string; page?: number; page_size?: number } = {
-    page: page.value,
-    page_size: pageSize,
+  loading.value = true
+  try {
+    const params: { status?: string; page?: number; page_size?: number } = {
+      page: page.value,
+      page_size: pageSize,
+    }
+    if (statusFilter.value) {
+      params.status = statusFilter.value
+    }
+    const { data } = await getAdminOrders(params)
+    orders.value = data.items
+    total.value = data.total
+  } finally {
+    loading.value = false
   }
-  if (statusFilter.value) {
-    params.status = statusFilter.value
-  }
-  const { data } = await getAdminOrders(params)
-  orders.value = data.items
-  total.value = data.total
 }
 
 function onStatusChange() {

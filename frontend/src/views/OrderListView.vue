@@ -3,7 +3,8 @@
     <AppHeader />
     <div class="orders-content">
       <h2 class="page-title">我的订单</h2>
-      <el-table v-if="orders.length" :data="orders" border stripe>
+      <div v-loading="loading">
+        <el-table v-if="orders.length" :data="orders" border stripe>
         <el-table-column prop="order_no" label="订单号" min-width="190" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -37,8 +38,9 @@
             </el-button>
           </template>
         </el-table-column>
-      </el-table>
-      <EmptyState v-else message="还没有订单，去逛逛吧" />
+        </el-table>
+        <EmptyState v-else message="还没有订单，去逛逛吧" />
+      </div>
       <PaginationBar
         :total="total"
         :page="page"
@@ -65,11 +67,17 @@ const orders = ref<Order[]>([])
 const total = ref(0)
 const page = ref(1)
 const pageSize = 10
+const loading = ref(false)
 
 async function load() {
-  const { data } = await getOrders(page.value, pageSize)
-  orders.value = data.items
-  total.value = data.total
+  loading.value = true
+  try {
+    const { data } = await getOrders(page.value, pageSize)
+    orders.value = data.items
+    total.value = data.total
+  } finally {
+    loading.value = false
+  }
 }
 
 function onPageChange(newPage: number) {

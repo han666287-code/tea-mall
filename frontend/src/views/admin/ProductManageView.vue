@@ -7,7 +7,7 @@
         <el-button type="primary" @click="openCreate">新增商品</el-button>
       </div>
 
-      <el-table :data="products" border stripe>
+      <el-table v-loading="loading" :data="products" border stripe>
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column label="图片" width="80">
           <template #default="{ row }">
@@ -127,6 +127,7 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const selectedFile = ref<File | null>(null)
+const loading = ref(false)
 const form = reactive({
   name: '',
   category_id: undefined as number | undefined,
@@ -138,13 +139,18 @@ const form = reactive({
 })
 
 async function load() {
-  const { data } = await getProducts({
-    page: page.value,
-    page_size: pageSize,
-    include_off_sale: true,
-  })
-  products.value = data.items
-  total.value = data.total
+  loading.value = true
+  try {
+    const { data } = await getProducts({
+      page: page.value,
+      page_size: pageSize,
+      include_off_sale: true,
+    })
+    products.value = data.items
+    total.value = data.total
+  } finally {
+    loading.value = false
+  }
 }
 
 function openCreate() {
