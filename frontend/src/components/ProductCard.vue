@@ -16,22 +16,47 @@
         {{ product.stock > 0 ? `库存 ${product.stock}` : '缺货' }}
       </span>
     </div>
+    <div class="product-actions">
+      <el-button
+        type="primary"
+        size="small"
+        :disabled="product.stock <= 0"
+        @click.stop="handleAddToCart"
+      >
+        加入购物车
+      </el-button>
+    </div>
   </el-card>
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 import type { Product } from '@/types/product'
 
 const props = defineProps<{ product: Product }>()
 const router = useRouter()
+const authStore = useAuthStore()
+const cartStore = useCartStore()
 
 const priceText = computed(() => Number(props.product.price).toFixed(2))
 
 function goDetail() {
   router.push(`/products/${props.product.id}`)
+}
+
+async function handleAddToCart() {
+  if (!authStore.token) {
+    ElMessage.warning('请先登录')
+    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    return
+  }
+  await cartStore.addToCart(props.product.id, 1)
+  ElMessage.success('已加入购物车')
 }
 </script>
 
@@ -74,6 +99,10 @@ function goDetail() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.product-actions {
+  margin-top: 10px;
 }
 
 .product-price {

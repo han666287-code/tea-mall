@@ -27,10 +27,12 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const cartStore = useCartStore()
 
 const form = reactive({ username: '', password: '' })
 const loading = ref(false)
@@ -40,6 +42,7 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login(form.username, form.password)
+    await cartStore.fetchCart()
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   } finally {

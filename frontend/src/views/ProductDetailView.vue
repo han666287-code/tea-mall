@@ -13,6 +13,13 @@
           <div class="detail-meta">分类：{{ product.category_name || '-' }}</div>
           <div class="detail-price">¥{{ priceText }}</div>
           <div class="detail-stock">库存：{{ product.stock }}</div>
+          <div v-if="product.stock > 0" class="detail-buy">
+            <el-input-number v-model="buyQuantity" :min="1" :max="product.stock" />
+            <el-button type="primary" size="large" :loading="adding" @click="handleAddToCart">
+              加入购物车
+            </el-button>
+          </div>
+          <div v-else class="detail-soldout">该商品暂时缺货</div>
           <p class="detail-desc">{{ product.description || '暂无描述' }}</p>
         </div>
       </div>
@@ -22,18 +29,25 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getProduct } from '@/api/products'
 import AppHeader from '@/components/AppHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 import type { Product } from '@/types/product'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
+const cartStore = useCartStore()
 const product = ref<Product | null>(null)
 const notFound = ref(false)
+const buyQuantity = ref(1)
+const adding = ref(false)
 
 const priceText = computed(() =>
   product.value ? Number(product.value.price).toFixed(2) : '0.00',
@@ -47,6 +61,22 @@ onMounted(async () => {
     notFound.value = true
   }
 })
+
+async function handleAddToCart() {
+  if (!product.value) return
+  if (!authStore.token) {
+    ElMessage.warning('请先登录')
+    router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    return
+  }
+  adding.value = true
+  try {
+    await cartStore.addToCart(product.value.id, buyQuantity.value)
+    ElMessage.success('已加入购物车')
+  } finally {
+    adding.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -112,6 +142,18 @@ onMounted(async () => {
 
 .detail-stock {
   color: #666;
+  margin-bottom: 16px;
+}
+
+.detail-buy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-soldout {
+  color: #d4380d;
   margin-bottom: 16px;
 }
 

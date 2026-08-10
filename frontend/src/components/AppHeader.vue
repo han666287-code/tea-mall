@@ -11,6 +11,12 @@
       />
       <nav class="header-nav">
         <router-link to="/products">全部商品</router-link>
+        <router-link to="/cart" class="cart-link">
+          <el-badge :value="cartStore.totalQuantity" :hidden="cartStore.totalQuantity === 0" :max="99">
+            <el-icon :size="18"><ShoppingCart /></el-icon>
+            购物车
+          </el-badge>
+        </router-link>
         <template v-if="authStore.user?.role === 'admin'">
           <router-link to="/admin/categories">分类管理</router-link>
           <router-link to="/admin/products">商品管理</router-link>
@@ -25,13 +31,16 @@
 </template>
 
 <script setup lang="ts">
+import { ShoppingCart } from '@element-plus/icons-vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const cartStore = useCartStore()
 const keyword = ref('')
 
 function handleSearch() {
@@ -41,6 +50,7 @@ function handleSearch() {
 
 function handleLogout() {
   authStore.logout()
+  cartStore.clear()
   router.push('/login')
 }
 </script>
@@ -93,5 +103,10 @@ function handleLogout() {
 .header-user {
   font-size: 14px;
   color: #666;
+}
+
+.cart-link {
+  display: flex;
+  align-items: center;
 }
 </style>

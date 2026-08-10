@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from app.config import UPLOAD_DIR, settings
 from app.database import Base, engine
-from app.routers import auth, categories, products
+from app.routers import auth, cart, categories, products
 
 
 @asynccontextmanager
@@ -23,6 +23,7 @@ app = FastAPI(title="Tea Mall API", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(categories.router)
 app.include_router(products.router)
+app.include_router(cart.router)
 
 # 商品图片静态文件服务
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
