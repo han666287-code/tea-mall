@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +29,7 @@ class OrderResponse(BaseModel):
     order_no: str
     status: str
     total_amount: Decimal
+    username: str | None = None
     receiver_name: str
     receiver_phone: str
     receiver_address: str
@@ -42,3 +44,7 @@ class OrderListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class OrderStatusUpdate(BaseModel):
+    status: Literal["pending", "paid", "shipped", "completed", "cancelled"]

@@ -29,3 +29,9 @@ class Order(Base):
     items = relationship(
         "OrderItem", back_populates="order", cascade="all, delete-orphan"
     )
+    user = relationship("User")
+
+    @property
+    def username(self) -> str | None:
+        """便于管理端直接展示下单用户。"""
+        return self.user.username if self.user else None

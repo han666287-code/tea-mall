@@ -21,6 +21,7 @@
         <template v-if="authStore.user?.role === 'admin'">
           <router-link to="/admin/categories">分类管理</router-link>
           <router-link to="/admin/products">商品管理</router-link>
+          <router-link to="/admin/orders">订单管理</router-link>
         </template>
         <span v-if="authStore.user" class="header-user">
           {{ authStore.user.nickname || authStore.user.username }}

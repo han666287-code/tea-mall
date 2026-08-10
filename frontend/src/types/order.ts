@@ -14,6 +14,7 @@ export interface Order {
   order_no: string
   status: OrderStatus
   total_amount: string
+  username: string | null
   receiver_name: string
   receiver_phone: string
   receiver_address: string

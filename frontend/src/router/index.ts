@@ -70,6 +70,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/admin/ProductManageView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
+  {
+    path: '/admin/orders',
+    name: 'admin-orders',
+    component: () => import('@/views/admin/OrderManageView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
 ]
 
 const router = createRouter({
