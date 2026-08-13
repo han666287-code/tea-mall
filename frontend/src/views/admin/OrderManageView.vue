@@ -37,24 +37,27 @@
         <span class="panel-count">本页统计（按当前列表）</span>
       </div>
       <el-table v-loading="loading" :data="orders" class="admin-table">
-        <el-table-column prop="order_no" label="订单号" min-width="180" />
-        <el-table-column prop="username" label="买家" width="110" />
-        <el-table-column label="状态" width="110">
+        <el-table-column prop="order_no" label="订单号" min-width="160" />
+        <el-table-column prop="username" label="买家" width="110" align="center" />
+        <el-table-column label="状态" width="110" align="center">
           <template #default="{ row }">
             <el-tag :type="ORDER_STATUS_TAG[row.status as OrderStatus]" effect="light" round>
               {{ ORDER_STATUS_TEXT[row.status as OrderStatus] }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="金额" width="110">
+        <el-table-column label="金额" width="110" align="center">
           <template #default="{ row }">
             <span class="price-cell">¥{{ Number(row.total_amount).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="下单时间" min-width="160">
+        <el-table-column label="下单时间" min-width="150">
           <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="300" align="right">
+        <el-table-column label="操作" min-width="240">
+          <template #header>
+            <span class="ops-header">操作</span>
+          </template>
           <template #default="{ row }">
             <el-button size="small" @click="showDetail(row)">详情</el-button>
             <el-button
@@ -310,6 +313,12 @@ onMounted(load)
 
 .admin-table {
   padding: 0 8px;
+}
+
+.ops-header {
+  display: inline-block;
+  width: 232px;
+  text-align: center;
 }
 
 .price-cell {

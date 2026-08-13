@@ -16,30 +16,30 @@
         <span class="panel-count">共 {{ total }} 款商品</span>
       </div>
       <el-table v-loading="loading" :data="products" class="admin-table">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column label="图片" width="84">
+        <el-table-column prop="id" label="ID" align="center" header-align="center" />
+        <el-table-column label="图片" align="center" header-align="center">
           <template #default="{ row }">
             <el-image v-if="row.image_url" :src="row.image_url" fit="cover" class="thumb" />
             <div v-else class="thumb thumb-ph">无图</div>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="名称" min-width="170" show-overflow-tooltip />
-        <el-table-column label="分类" width="120">
+        <el-table-column prop="name" label="名称" align="center" header-align="center" show-overflow-tooltip />
+        <el-table-column label="分类" align="center" header-align="center">
           <template #default="{ row }">
             <span class="cat-tag">{{ row.category_name || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="价格" width="110">
+        <el-table-column label="价格" align="center" header-align="center">
           <template #default="{ row }">
             <span class="price-cell">¥{{ Number(row.price).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="库存" width="100">
+        <el-table-column label="库存" align="center" header-align="center">
           <template #default="{ row }">
             <span class="stock-cell" :class="{ low: row.stock <= 10 }">{{ row.stock }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="上架" width="90">
+        <el-table-column label="上架" align="center" header-align="center">
           <template #default="{ row }">
             <el-switch
               :model-value="row.is_on_sale"
@@ -47,7 +47,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170" align="right">
+        <el-table-column label="操作" width="170" align="center" header-align="center">
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
@@ -322,6 +322,9 @@ onMounted(async () => {
 }
 
 .thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 48px;
   height: 48px;
   border-radius: 8px;
@@ -329,7 +332,7 @@ onMounted(async () => {
 }
 
 .thumb-ph {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;

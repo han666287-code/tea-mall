@@ -16,8 +16,8 @@
         <span class="panel-count">共 {{ categories.length }} 个分类</span>
       </div>
       <el-table v-loading="loading" :data="categories" class="admin-table">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column label="分类名称" min-width="220">
+        <el-table-column prop="id" label="ID" align="center" />
+        <el-table-column label="分类名称" align="center">
           <template #default="{ row }">
             <span class="cat-name">
               <span class="cat-dot" :style="{ background: dotColor(row.id) }"></span>
@@ -25,9 +25,12 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="sort_order" label="排序" width="100" />
-        <el-table-column prop="created_at" label="创建时间" min-width="180" />
-        <el-table-column label="操作" width="170" align="right">
+        <el-table-column prop="sort_order" label="排序" align="center" />
+        <el-table-column prop="created_at" label="创建时间" align="center" />
+        <el-table-column label="操作">
+          <template #header>
+            <span class="ops-header">操作</span>
+          </template>
           <template #default="{ row }">
             <el-button size="small" @click="openEdit(row)">编辑</el-button>
             <el-button size="small" type="danger" plain @click="handleDelete(row)">删除</el-button>
@@ -192,7 +195,13 @@ onMounted(load)
 }
 
 .admin-table {
-  padding: 0 8px 8px;
+  padding: 0 8px;
+}
+
+.ops-header {
+  display: inline-block;
+  width: 122px;
+  text-align: center;
 }
 
 .cat-name {

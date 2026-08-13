@@ -24,13 +24,19 @@
 
       <nav class="header-nav">
         <router-link to="/products" class="nav-link">全部好茶</router-link>
-        <router-link to="/cart" class="nav-link">
+        <router-link v-if="authStore.user?.role !== 'admin'" to="/cart" class="nav-link">
           <el-badge :value="cartStore.totalQuantity" :hidden="cartStore.totalQuantity === 0" :max="99">
             <el-icon :size="17"><ShoppingCart /></el-icon>
           </el-badge>
           <span>购物车</span>
         </router-link>
-        <router-link v-if="authStore.user" to="/orders" class="nav-link">我的订单</router-link>
+        <router-link
+          v-if="authStore.user && authStore.user.role !== 'admin'"
+          to="/orders"
+          class="nav-link"
+        >
+          我的订单
+        </router-link>
         <template v-if="authStore.user?.role === 'admin'">
           <router-link to="/admin/categories" class="nav-link">分类管理</router-link>
           <router-link to="/admin/products" class="nav-link">商品管理</router-link>
@@ -50,7 +56,12 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="router.push('/orders')">我的订单</el-dropdown-item>
+              <el-dropdown-item
+                v-if="authStore.user?.role !== 'admin'"
+                @click="router.push('/orders')"
+              >
+                我的订单
+              </el-dropdown-item>
               <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
