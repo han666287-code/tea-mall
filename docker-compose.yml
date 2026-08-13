@@ -22,9 +22,9 @@ services:
     container_name: tea-mall-backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://tea_mall:tea_mall_dev@mysql:3306/tea_mall?charset=utf8mb4}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-in-production-0123456789}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL must be set in .env}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env}
       JWT_EXPIRE_DAYS: ${JWT_EXPIRE_DAYS:-7}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
@@ -55,10 +55,10 @@ services:
     container_name: tea-mall-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       MYSQL_DATABASE: tea_mall
       MYSQL_USER: tea_mall
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-tea_mall_dev}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set in .env}
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -71,7 +71,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD",
+          "mysqladmin ping -h 127.0.0.1 --protocol=tcp -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
         ]
       interval: 10s
       timeout: 5s
@@ -90,7 +90,7 @@ services:
       - redis-data:/data
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

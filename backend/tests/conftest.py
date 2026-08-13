@@ -1,4 +1,17 @@
-"""pytest 公共配置：建表、测试管理员、缓存清理、测试数据清理。"""
+"""pytest 公共配置：测试环境隔离、建表、测试管理员、缓存与数据清理。"""
+
+import os
+
+# 必须在导入 app 模块之前设置测试环境标识与连接目标，
+# 避免任何路径误连开发数据库 / 开发 Redis。
+os.environ["TESTING"] = "1"
+if "DATABASE_URL" not in os.environ:
+    os.environ["DATABASE_URL"] = os.environ.get(
+        "TEST_DATABASE_URL",
+        "mysql+pymysql://tea_mall:tea_mall_dev@localhost:3306/tea_mall_test?charset=utf8mb4",
+    )
+if "REDIS_URL" not in os.environ:
+    os.environ["REDIS_URL"] = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
 
 from uuid import uuid4
 
@@ -6,8 +19,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
+from app.config import ensure_testing_environment
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine
+from app.database import Base, SessionLocal, engine, get_db
 from app.main import app
 from app.models import (  # noqa: F401  注册全部模型
     CartItem,
@@ -18,6 +32,18 @@ from app.models import (  # noqa: F401  注册全部模型
     User,
 )
 from app.services import cache
+
+
+def _override_get_db():
+    """显式将 FastAPI 的 DB 依赖覆盖为测试库会话（双保险防误连开发库）。"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = _override_get_db
 
 client = TestClient(app)
 
@@ -42,11 +68,13 @@ def create_test_admin() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def prepare_database():
+    # 环境保护：非测试库 / 非测试 Redis 时拒绝建表与清理
+    ensure_testing_environment()
     Base.metadata.create_all(bind=engine)
     create_test_admin()
     yield
     with SessionLocal() as db:
-        # 只清理测试创建的数据（名称以 test 开头），不影响种子数据
+        # 只清理测试库中由测试创建的数据，不影响任何非测试数据
         db.execute(delete(OrderItem))
         db.execute(delete(Order))
         db.execute(delete(CartItem))
@@ -58,7 +86,7 @@ def prepare_database():
 
 @pytest.fixture(autouse=True)
 def clear_cache():
-    """每个测试前清空 Redis 缓存，保证用例之间互不影响。"""
+    """每个测试前清空测试 Redis 缓存，保证用例之间互不影响。"""
     cache.clear_all()
     yield
 

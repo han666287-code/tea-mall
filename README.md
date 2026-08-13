@@ -21,6 +21,7 @@
 ## Docker 一键部署（推荐）
 
 只需安装 Docker Desktop，克隆仓库后即可运行完整平台（前端、后端、MySQL、Redis）。
+后端启动时会先等待 MySQL 就绪（有限重试，最多约 40 秒），MySQL 尚未完成初始化不会随机失败；配置错误会在日志中明确报出。
 
 ### 前置要求
 
@@ -32,10 +33,24 @@
 git clone <your-repo-url>
 cd tea-mall
 cp .env.example .env        # Windows: Copy-Item .env.example .env
+# 生成随机 JWT_SECRET 并填入 .env（必填，缺失或弱值后端拒绝启动）
+python -c "import secrets; print(secrets.token_urlsafe(48))"
 docker compose up -d
 ```
 
 首次启动会自动构建前后端镜像、初始化 MySQL（建库建用户）、拉起 Redis，后端启动时自动创建数据表。
+
+## 安全配置（JWT Secret）
+
+`JWT_SECRET` 是必填配置，不再提供任何默认值：缺失、少于 32 字节或命中已知弱值（如 `dev-only-*`、`change-me-*`）时，后端会拒绝启动。`.env.example` 只提供占位符，复制后必须替换。
+
+生成命令：
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+将输出粘贴到 `.env` 的 `JWT_SECRET=` 后即可。
 
 ### 访问地址
 
@@ -65,10 +80,17 @@ docker compose logs -f frontend
 ### 初始化种子数据（可选）
 
 ```bash
-docker compose exec backend python seed.py
+# 设置管理员初始密码（至少 12 位，禁止 admin123 等弱密码）
+docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<强密码>' backend python seed.py
 ```
 
-创建默认管理员 `admin / admin123` 和示例分类、商品。
+首次运行创建管理员（用户名默认 `admin`，可用 `ADMIN_USERNAME` 覆盖）和示例分类、商品；重复执行幂等，不会重复创建，密码不会打印。
+
+重置已存在管理员的密码：
+
+```bash
+docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<新强密码>' backend python seed.py --reset-admin-password
+```
 
 ### 数据持久化
 
@@ -118,7 +140,7 @@ tea-mall
 mysql -u root -p < sql/init.sql
 ```
 
-该脚本会创建 `tea_mall` 数据库和开发账号 `tea_mall / tea_mall_dev`。
+该脚本会创建 `tea_mall` 数据库和本地开发账号（用户名与密码需与 `backend/.env` 中 `DATABASE_URL` 保持一致）。
 
 ### 2. 启动 Redis
 
@@ -133,7 +155,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env   # 首次运行，按需修改
+Copy-Item .env.example .env   # 首次运行：生成并填写随机 JWT_SECRET（方法见「安全配置」章节），按需修改数据库连接
 uvicorn app.main:app --reload
 ```
 
@@ -142,10 +164,18 @@ uvicorn app.main:app --reload
 ### 4. 初始化种子数据（可选）
 
 ```powershell
+$env:ADMIN_PASSWORD = '<强密码>'   # 可选：$env:ADMIN_USERNAME = 'admin'
 python seed.py
 ```
 
-创建默认管理员 `admin / admin123` 和示例分类、商品。
+首次运行创建管理员（默认用户名 `admin`）和示例分类、商品；重复执行幂等。
+
+重置已存在管理员的密码：
+
+```powershell
+$env:ADMIN_PASSWORD = '<新强密码>'
+python seed.py --reset-admin-password
+```
 
 ### 5. 启动前端（5173 端口）
 
@@ -159,15 +189,35 @@ npm run dev
 
 ## 默认账号
 
-- 管理员：`admin / admin123`（本地学习用途，请勿用于生产）
+- 管理员：首次初始化时通过 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 环境变量创建（默认用户名 `admin`；密码至少 12 位，禁止弱密码）
 - 普通用户：在注册页自行注册
 
 ## 测试
 
-后端测试（需要 MySQL 与 Redis 已启动）：
+后端测试使用独立的测试数据库 `tea_mall_test` 和独立的测试 Redis（DB 15），与开发数据完全隔离；破坏性清理在非测试环境下会被拒绝执行。
+
+初始化测试库（首次，任选其一）：
+
+```powershell
+# 本地 MySQL：sql/init.sql 会同时创建 tea_mall 与 tea_mall_test
+mysql -u root -p < sql/init.sql
+```
+
+```bash
+# Docker 容器 MySQL：全新数据卷由 database/init.sql 自动创建 tea_mall_test；
+# 已初始化的旧卷需手动执行一次授权：
+docker compose exec mysql mysql -uroot -p'<MYSQL_ROOT_PASSWORD>' -e "CREATE DATABASE IF NOT EXISTS tea_mall_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON tea_mall_test.* TO 'tea_mall'@'%'; FLUSH PRIVILEGES;"
+```
+
+运行测试（默认连接本机 `localhost:3306` 的 `tea_mall_test`；使用 Docker 容器时用环境变量覆盖）：
 
 ```powershell
 cd backend
+pytest
+
+# 使用 Docker 容器 MySQL / Redis 时
+$env:DATABASE_URL='mysql+pymysql://tea_mall:tea_mall_dev@127.0.0.1:3307/tea_mall_test?charset=utf8mb4'
+$env:REDIS_URL='redis://127.0.0.1:6379/15'
 pytest
 ```
 

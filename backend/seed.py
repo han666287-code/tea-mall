@@ -1,8 +1,17 @@
-"""初始化数据：创建默认管理员、示例分类与茶叶商品。
+"""初始化数据：创建管理员、示例分类与茶叶商品。
+
+管理员账号从环境变量读取：
+    ADMIN_USERNAME（可选，默认 admin）
+    ADMIN_PASSWORD（必填，至少 12 位，禁止弱密码）
 
 用法：
-    python seed.py
+    python seed.py                        # 创建管理员（幂等）与示例数据
+    python seed.py --reset-admin-password # 重置已存在管理员密码
 """
+
+import argparse
+import os
+import sys
 
 from sqlalchemy import select
 
@@ -12,28 +21,82 @@ from app.models.category import Category
 from app.models.product import Product
 from app.models.user import User
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_USERNAME_ENV = "ADMIN_USERNAME"
+ADMIN_PASSWORD_ENV = "ADMIN_PASSWORD"
+DEFAULT_ADMIN_USERNAME = "admin"
+MIN_ADMIN_PASSWORD_LENGTH = 12
+MAX_ADMIN_PASSWORD_BYTES = 72  # bcrypt 上限
+
+# 禁用弱密码（含历史默认 admin123）
+WEAK_ADMIN_PASSWORDS = {
+    "admin",
+    "admin123",
+    "password",
+    "password123",
+    "123456",
+    "12345678",
+    "123456789",
+    "1234567890",
+    "123456789012",
+    "qwerty",
+    "abc123",
+    "111111",
+    "changeme",
+}
+
+
+def load_admin_credentials() -> tuple[str, str]:
+    """从环境变量读取管理员用户名与密码，缺失或不安全时拒绝执行。"""
+    username = os.environ.get(ADMIN_USERNAME_ENV, DEFAULT_ADMIN_USERNAME).strip()
+    password = os.environ.get(ADMIN_PASSWORD_ENV, "")
+
+    if not username:
+        sys.exit(f"错误：{ADMIN_USERNAME_ENV} 不能为空")
+    if not password:
+        sys.exit(f"错误：未设置 {ADMIN_PASSWORD_ENV}，无法创建/重置管理员，请先设置强密码")
+    if len(password) < MIN_ADMIN_PASSWORD_LENGTH:
+        sys.exit(f"错误：管理员密码至少 {MIN_ADMIN_PASSWORD_LENGTH} 个字符")
+    if len(password.encode("utf-8")) > MAX_ADMIN_PASSWORD_BYTES:
+        sys.exit(f"错误：管理员密码 UTF-8 编码后不能超过 {MAX_ADMIN_PASSWORD_BYTES} 字节")
+    if password in WEAK_ADMIN_PASSWORDS or "admin123" in password.lower():
+        sys.exit("错误：管理员密码命中弱密码名单（如 admin123），请设置强密码")
+    return username, password
 
 
 def create_admin() -> None:
+    """创建管理员；用户名已存在则跳过（幂等）。"""
+    username, password = load_admin_credentials()
     db = SessionLocal()
     try:
-        exists = db.scalar(select(User).where(User.username == ADMIN_USERNAME))
+        exists = db.scalar(select(User).where(User.username == username))
         if exists:
-            print("管理员账号已存在，跳过创建")
+            print(f"管理员账号 {username} 已存在，跳过创建")
             return
         db.add(
             User(
-                username=ADMIN_USERNAME,
-                password_hash=hash_password(ADMIN_PASSWORD),
+                username=username,
+                password_hash=hash_password(password),
                 nickname="管理员",
                 role="admin",
             )
         )
         db.commit()
-        print(f"默认管理员已创建：{ADMIN_USERNAME} / {ADMIN_PASSWORD}")
-        print("注意：本地学习项目默认密码，请勿用于生产环境")
+        print(f"管理员账号 {username} 已创建（密码已 bcrypt 哈希存储，不会打印明文）")
+    finally:
+        db.close()
+
+
+def reset_admin_password() -> None:
+    """将已存在管理员的密码更新为环境变量指定值。"""
+    username, password = load_admin_credentials()
+    db = SessionLocal()
+    try:
+        user = db.scalar(select(User).where(User.username == username))
+        if user is None or user.role != "admin":
+            sys.exit(f"错误：管理员账号 {username} 不存在，请先运行 seed.py 创建")
+        user.password_hash = hash_password(password)
+        db.commit()
+        print(f"管理员账号 {username} 密码已重置（密码已 bcrypt 哈希存储，不会打印明文）")
     finally:
         db.close()
 
@@ -96,6 +159,21 @@ def create_categories_and_products() -> None:
         db.close()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    parser = argparse.ArgumentParser(description="TeaMall 初始化种子数据")
+    parser.add_argument(
+        "--reset-admin-password",
+        action="store_true",
+        help="重置已存在管理员账号的密码（从 ADMIN_USERNAME / ADMIN_PASSWORD 读取）",
+    )
+    args = parser.parse_args()
+
+    if args.reset_admin_password:
+        reset_admin_password()
+        return
     create_admin()
     create_categories_and_products()
+
+
+if __name__ == "__main__":
+    main()

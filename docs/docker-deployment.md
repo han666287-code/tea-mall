@@ -33,7 +33,7 @@ flowchart LR
 
 Docker Compose 通过健康检查保证依赖顺序：
 
-1. `mysql` 健康：`mysqladmin ping` 成功；`redis` 健康：`redis-cli ping` 返回 PONG。
+1. `mysql` 健康：`mysqladmin ping` 通过 TCP（127.0.0.1:3306）验证服务可用；`redis` 健康：`redis-cli ping` 返回 PONG。
 2. `backend` 等待 mysql、redis 均 `healthy` 后才启动；自身健康检查请求 `/api/health`（同时验证数据库与 Redis 连接）。
 3. `frontend` 等待 backend `healthy` 后启动，nginx 对外提供服务。
 
@@ -45,14 +45,15 @@ Docker Compose 通过健康检查保证依赖顺序：
 ## 启动流程
 
 1. 安装 Docker Desktop 后，克隆仓库并进入项目目录。
-2. 复制环境变量文件：`cp .env.example .env`（Windows 用 `Copy-Item`），按需修改密码与端口。
+2. 复制环境变量文件：`cp .env.example .env`（Windows 用 `Copy-Item`），生成随机 `JWT_SECRET` 并填写（必填，缺失或弱值后端拒绝启动），按需修改密码与端口。
 3. 执行 `docker compose up -d`：
    - 自动创建网络 `tea-mall-net` 与数据卷；
    - 构建前后端镜像（首次较慢）；
    - MySQL 首次启动时由 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 环境变量创建库与用户，并执行挂载的 `database/init.sql`（幂等，双保险）；
    - 后端连接 MySQL 后执行 `create_all` 自动创建数据表；
    - 全部就绪后，前端与后端 API 对外可访问。
-4. 可选：`docker compose exec backend python seed.py` 初始化管理员与示例数据。
+4. 可选：初始化管理员与示例数据（管理员密码从 `ADMIN_PASSWORD` 环境变量读取，至少 12 位且禁止弱密码；首次创建幂等，重置密码见 README「初始化种子数据」）：
+   `docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<强密码>' backend python seed.py`
 
 ## 数据持久化
 
@@ -71,7 +72,7 @@ Docker Compose 通过健康检查保证依赖顺序：
 - `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD`：MySQL root 与应用账号密码（仅首次初始化生效）。
 - `DATABASE_URL`：后端连接串，host 必须是服务名 `mysql`；修改密码时需与 `MYSQL_PASSWORD` 同步。
 - `REDIS_URL`：host 为服务名 `redis`。
-- `JWT_SECRET`：生产环境务必改为随机长字符串（至少 32 字节）。
+- `JWT_SECRET`：必填；缺失、少于 32 字节或命中已知弱值时后端拒绝启动。生成命令：`python -c "import secrets; print(secrets.token_urlsafe(48))"`。
 - `JWT_EXPIRE_DAYS`：token 有效期（天）。
 
 ## 常见问题
@@ -90,7 +91,7 @@ backend 尚未就绪或已退出。先 `docker compose ps` 查看状态，再 `d
 
 **4. 容器反复 restarting**
 
-`docker compose logs <service>` 查看具体报错；常见原因：环境变量缺失、端口占用、MySQL 初始化失败。
+`docker compose logs <service>` 查看具体报错；常见原因：环境变量缺失（含 `JWT_SECRET` 未填写或为弱值）、端口占用、MySQL 初始化失败。
 
 **5. 镜像拉取 / 构建失败（网络原因）**
 
@@ -111,3 +112,7 @@ docker compose up -d
 ```
 
 注意：这会清空所有数据（包括上传的图片）。
+
+**8. 上传图片返回 413**
+
+单张图片超过 10MB 时（nginx 与后端双重限制）返回 413，请压缩后重试。

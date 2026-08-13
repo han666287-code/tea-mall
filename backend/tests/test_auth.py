@@ -1,9 +1,12 @@
 """用户认证接口测试：注册、登录、当前用户鉴权。"""
 
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import jwt as pyjwt
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.main import app
 
 client = TestClient(app)
@@ -80,4 +83,15 @@ def test_me_with_token():
 
 def test_me_with_invalid_token():
     response = client.get("/api/auth/me", headers={"Authorization": "Bearer not-a-valid-token"})
+    assert response.status_code == 401
+
+
+def test_me_with_expired_token():
+    now = datetime.now(timezone.utc)
+    token = pyjwt.encode(
+        {"sub": "1", "exp": now - timedelta(seconds=1)},
+        settings.jwt_secret,
+        algorithm="HS256",
+    )
+    response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 401

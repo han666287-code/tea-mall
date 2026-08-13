@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+from app.config import UPLOAD_DIR
 from tests.conftest import client
 
 
@@ -193,3 +194,18 @@ def test_upload_non_image_rejected(admin_headers):
         headers=admin_headers,
     )
     assert response.status_code == 400
+
+
+def test_upload_image_too_large_rejected(admin_headers):
+    category_id = make_category(admin_headers)
+    product_id = make_product(admin_headers, category_id, unique_name()).json()["id"]
+    before = {p.name for p in UPLOAD_DIR.glob("*")}
+    files = {"file": ("big.png", b"x" * (10 * 1024 * 1024 + 1), "image/png")}
+    response = client.post(
+        f"/api/products/{product_id}/image",
+        files=files,
+        headers=admin_headers,
+    )
+    assert response.status_code == 413
+    after = {p.name for p in UPLOAD_DIR.glob("*")}
+    assert after - before == set()

@@ -25,6 +25,7 @@ from app.services import cache
 router = APIRouter(prefix="/api/products", tags=["products"])
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 
 
 @router.get("", response_model=ProductListResponse)
@@ -165,8 +166,25 @@ def upload_product_image(
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid4().hex}{ext}"
-    with open(UPLOAD_DIR / filename, "wb") as target:
-        shutil.copyfileobj(file.file, target)
+    target_path = UPLOAD_DIR / filename
+    written = 0
+    try:
+        with open(target_path, "wb") as target:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_UPLOAD_SIZE_BYTES:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="文件过大：单个图片不能超过 10MB",
+                    )
+                target.write(chunk)
+    except HTTPException:
+        # 超限时清理半成品文件，避免残留
+        target_path.unlink(missing_ok=True)
+        raise
 
     product.image_url = f"/uploads/{filename}"
     db.commit()

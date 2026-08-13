@@ -44,13 +44,26 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
     if not cart_items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="购物车为空")
 
+    # 锁定购物车内所有商品行（FOR UPDATE），防止并发下单超卖；
+    # 按 id 排序锁定，避免多商品订单之间产生死锁
+    product_ids = [item.product_id for item in cart_items]
+    locked_products = {
+        p.id: p
+        for p in db.scalars(
+            select(Product)
+            .where(Product.id.in_(product_ids))
+            .order_by(Product.id)
+            .with_for_update()
+        )
+    }
+    if len(locked_products) != len(set(product_ids)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="商品不存在")
+
     # 先校验全部商品，任何一项不满足则整单失败
     prepared: list[tuple[Product, int, Decimal, Decimal]] = []
     total_amount = Decimal("0.00")
     for cart_item in cart_items:
-        product = cart_item.product
-        if product is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="商品不存在")
+        product = locked_products[cart_item.product_id]
         if not product.is_on_sale:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品「{product.name}」已下架"

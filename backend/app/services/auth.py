@@ -17,9 +17,13 @@ def register_user(db: Session, data: RegisterRequest) -> User:
     """注册普通用户，用户名重复时返回 400。"""
     if get_user_by_username(db, data.username):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
+    try:
+        password_hash = hash_password(data.password)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="密码格式不正确")
     user = User(
         username=data.username,
-        password_hash=hash_password(data.password),
+        password_hash=password_hash,
         nickname=data.nickname,
         role="user",
     )
@@ -32,7 +36,13 @@ def register_user(db: Session, data: RegisterRequest) -> User:
 def authenticate_user(db: Session, data: LoginRequest) -> User:
     """校验用户名密码，失败统一返回 400，避免暴露用户是否存在。"""
     user = get_user_by_username(db, data.username)
-    if user is None or not verify_password(data.password, user.password_hash):
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或密码错误")
+    try:
+        password_ok = verify_password(data.password, user.password_hash)
+    except ValueError:
+        password_ok = False
+    if not password_ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或密码错误")
     return user
 

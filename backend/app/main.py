@@ -1,5 +1,7 @@
 """应用入口：创建 FastAPI 实例，启动时自动建表。"""
 
+import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,11 +13,38 @@ from app.config import UPLOAD_DIR, settings
 from app.database import Base, engine
 from app.routers import admin, auth, cart, categories, orders, products
 
+logger = logging.getLogger("uvicorn.error")
+
+DB_STARTUP_MAX_ATTEMPTS = 20
+DB_STARTUP_RETRY_DELAY_SECONDS = 2.0
+
+
+def _create_tables_with_retry() -> None:
+    """启动建表：数据库未就绪时有限重试，避免 MySQL 尚未完成初始化导致随机失败。"""
+    last_error: Exception | None = None
+    for attempt in range(1, DB_STARTUP_MAX_ATTEMPTS + 1):
+        try:
+            Base.metadata.create_all(bind=engine)
+            return
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "数据库未就绪（第 %s/%s 次）：%s",
+                attempt,
+                DB_STARTUP_MAX_ATTEMPTS,
+                exc,
+            )
+            time.sleep(DB_STARTUP_RETRY_DELAY_SECONDS)
+    raise RuntimeError(
+        f"数据库在 {DB_STARTUP_MAX_ATTEMPTS * DB_STARTUP_RETRY_DELAY_SECONDS:.0f} 秒内未能就绪，"
+        "请检查 DATABASE_URL 配置与 MySQL 服务状态"
+    ) from last_error
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动时创建尚未存在的表
-    Base.metadata.create_all(bind=engine)
+    # 启动时创建尚未存在的表（带有限重试，配置错误会在重试耗尽后明确失败退出）
+    _create_tables_with_retry()
     yield
 
 

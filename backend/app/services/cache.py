@@ -62,7 +62,9 @@ def invalidate_products() -> None:
 
 
 def clear_all() -> None:
-    """清空所有业务缓存（测试使用）。"""
+    """清空所有业务缓存（仅限测试环境；非测试环境拒绝执行）。"""
+    if not settings.testing:
+        raise RuntimeError("拒绝执行：clear_all 仅允许在测试环境（TESTING=1）使用")
     invalidate("cache:*")
 
 
