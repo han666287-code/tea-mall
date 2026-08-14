@@ -1,9 +1,9 @@
 """用户注册 / 登录业务逻辑。"""
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import BusinessException
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.user import LoginRequest, RegisterRequest, TokenResponse, UserResponse
@@ -16,11 +16,11 @@ def get_user_by_username(db: Session, username: str) -> User | None:
 def register_user(db: Session, data: RegisterRequest) -> User:
     """注册普通用户，用户名重复时返回 400。"""
     if get_user_by_username(db, data.username):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在")
+        raise BusinessException("USERNAME_TAKEN", "用户名已存在", status_code=400)
     try:
         password_hash = hash_password(data.password)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="密码格式不正确")
+        raise BusinessException("PASSWORD_FORMAT", "密码格式不正确", status_code=400)
     user = User(
         username=data.username,
         password_hash=password_hash,
@@ -37,13 +37,13 @@ def authenticate_user(db: Session, data: LoginRequest) -> User:
     """校验用户名密码，失败统一返回 400，避免暴露用户是否存在。"""
     user = get_user_by_username(db, data.username)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或密码错误")
+        raise BusinessException("INVALID_CREDENTIALS", "用户名或密码错误", status_code=400)
     try:
         password_ok = verify_password(data.password, user.password_hash)
     except ValueError:
         password_ok = False
     if not password_ok:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或密码错误")
+        raise BusinessException("INVALID_CREDENTIALS", "用户名或密码错误", status_code=400)
     return user
 
 

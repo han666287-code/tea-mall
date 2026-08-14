@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.common import PageResponse
+
 
 class ProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
@@ -41,8 +43,5 @@ class ProductResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ProductListResponse(BaseModel):
-    items: list[ProductResponse]
-    total: int
-    page: int
-    page_size: int
+class ProductListResponse(PageResponse[ProductResponse]):
+    """商品分页响应（字段与前端 ProductListResult 一致）。"""

@@ -82,6 +82,9 @@ def create_admin() -> None:
         )
         db.commit()
         print(f"管理员账号 {username} 已创建（密码已 bcrypt 哈希存储，不会打印明文）")
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -97,6 +100,9 @@ def reset_admin_password() -> None:
         user.password_hash = hash_password(password)
         db.commit()
         print(f"管理员账号 {username} 密码已重置（密码已 bcrypt 哈希存储，不会打印明文）")
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -155,6 +161,9 @@ def create_categories_and_products() -> None:
             )
         db.commit()
         print(f"示例数据已就绪：{len(SAMPLE_CATEGORIES)} 个分类，{len(SAMPLE_PRODUCTS)} 个商品")
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

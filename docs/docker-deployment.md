@@ -23,7 +23,7 @@ flowchart LR
 | 容器 | 镜像 | 职责 | 宿主端口（默认） |
 | --- | --- | --- | --- |
 | frontend | 自构建（node:20 → nginx:1.27） | 托管 Vue3 构建产物；`/api`、`/uploads` 反代到 backend | 8080 |
-| backend | 自构建（python:3.13-slim） | FastAPI 应用；启动时自动建表；商品图片存储 | 8000 |
+| backend | 自构建（python:3.13-slim） | FastAPI 应用；启动前自动执行 Alembic 迁移建表；商品图片存储 | 8000 |
 | mysql | mysql:8.0 | 数据库；环境变量 + init.sql 首次初始化 | 3307 |
 | redis | redis:8-alpine | 分类/商品缓存（TTL 5 分钟） | 6379 |
 
@@ -50,7 +50,7 @@ Docker Compose 通过健康检查保证依赖顺序：
    - 自动创建网络 `tea-mall-net` 与数据卷；
    - 构建前后端镜像（首次较慢）；
    - MySQL 首次启动时由 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 环境变量创建库与用户，并执行挂载的 `database/init.sql`（幂等，双保险）；
-   - 后端连接 MySQL 后执行 `create_all` 自动创建数据表；
+   - 后端容器入口先执行 `alembic upgrade head` 自动创建/更新数据表，再启动 FastAPI 应用；
    - 全部就绪后，前端与后端 API 对外可访问。
 4. 可选：初始化管理员与示例数据（管理员密码从 `ADMIN_PASSWORD` 环境变量读取，至少 12 位且禁止弱密码；首次创建幂等，重置密码见 README「初始化种子数据」）：
    `docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<强密码>' backend python seed.py`

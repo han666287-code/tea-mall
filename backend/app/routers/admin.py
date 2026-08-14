@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_admin
 from app.database import get_db
 from app.schemas.order import OrderListResponse, OrderResponse, OrderStatusUpdate
+from app.schemas.common import MAX_PAGE_SIZE
 from app.services import admin as admin_service
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def list_orders(
     order_status: str | None = Query(default=None, alias="status"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=50),
+    page_size: int = Query(10, ge=1, le=MAX_PAGE_SIZE),
     db: Session = Depends(get_db),
     _admin=Depends(get_current_admin),
 ):

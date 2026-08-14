@@ -1,0 +1,2 @@
+# 保证 shell 入口脚本在 Windows 检出时保持 LF，避免容器内 shebang 失效
+*.sh text eol=lf

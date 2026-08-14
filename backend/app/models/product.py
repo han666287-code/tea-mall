@@ -3,7 +3,17 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -11,6 +21,11 @@ from app.database import Base
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        # 数据一致性：库存与价格不允许为负
+        CheckConstraint("stock >= 0", name="ck_products_stock_non_negative"),
+        CheckConstraint("price >= 0", name="ck_products_price_non_negative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), index=True)

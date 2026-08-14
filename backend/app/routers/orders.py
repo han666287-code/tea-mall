@@ -7,6 +7,7 @@ from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderListResponse, OrderResponse
+from app.schemas.common import MAX_PAGE_SIZE
 from app.services import order as order_service
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -24,7 +25,7 @@ def create_order(
 @router.get("", response_model=OrderListResponse)
 def list_orders(
     page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=50),
+    page_size: int = Query(10, ge=1, le=MAX_PAGE_SIZE),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

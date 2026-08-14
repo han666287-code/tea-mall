@@ -1,60 +1,40 @@
-"""应用入口：创建 FastAPI 实例，启动时自动建表。"""
+"""应用入口：创建 FastAPI 实例。
+
+数据库表结构由 Alembic 管理（Docker 通过 docker-entrypoint.sh、本地开发手动执行
+`alembic upgrade head`），应用启动不再调用 create_all。
+"""
 
 import logging
-import time
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from redis import Redis
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 
 from app.config import UPLOAD_DIR, settings
-from app.database import Base, engine
+from app.core import exception_handlers
+from app.core.exceptions import BusinessException
+from app.database import engine
 from app.routers import admin, auth, cart, categories, orders, products
 
 logger = logging.getLogger("uvicorn.error")
 
-DB_STARTUP_MAX_ATTEMPTS = 20
-DB_STARTUP_RETRY_DELAY_SECONDS = 2.0
-
-
-def _create_tables_with_retry() -> None:
-    """启动建表：数据库未就绪时有限重试，避免 MySQL 尚未完成初始化导致随机失败。"""
-    last_error: Exception | None = None
-    for attempt in range(1, DB_STARTUP_MAX_ATTEMPTS + 1):
-        try:
-            Base.metadata.create_all(bind=engine)
-            return
-        except Exception as exc:
-            last_error = exc
-            logger.warning(
-                "数据库未就绪（第 %s/%s 次）：%s",
-                attempt,
-                DB_STARTUP_MAX_ATTEMPTS,
-                exc,
-            )
-            time.sleep(DB_STARTUP_RETRY_DELAY_SECONDS)
-    raise RuntimeError(
-        f"数据库在 {DB_STARTUP_MAX_ATTEMPTS * DB_STARTUP_RETRY_DELAY_SECONDS:.0f} 秒内未能就绪，"
-        "请检查 DATABASE_URL 配置与 MySQL 服务状态"
-    ) from last_error
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 启动时创建尚未存在的表（带有限重试，配置错误会在重试耗尽后明确失败退出）
-    _create_tables_with_retry()
-    yield
-
-
-app = FastAPI(title="Tea Mall API", lifespan=lifespan)
+app = FastAPI(title="Tea Mall API")
 app.include_router(auth.router)
 app.include_router(categories.router)
 app.include_router(products.router)
 app.include_router(cart.router)
 app.include_router(orders.router)
 app.include_router(admin.router)
+
+# 统一异常处理：业务异常 4xx、未知异常 500，错误体统一为 {detail, code}
+app.add_exception_handler(BusinessException, exception_handlers.business_exception_handler)
+app.add_exception_handler(HTTPException, exception_handlers.http_exception_handler)
+app.add_exception_handler(RequestValidationError, exception_handlers.validation_exception_handler)
+app.add_exception_handler(IntegrityError, exception_handlers.integrity_error_handler)
+app.add_exception_handler(Exception, exception_handlers.generic_exception_handler)
 
 # 商品图片静态文件服务
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

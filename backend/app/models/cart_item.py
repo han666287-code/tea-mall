@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -13,6 +13,7 @@ class CartItem(Base):
     __table_args__ = (
         # 同一用户对同一商品只保留一行，重复加购时累加数量
         UniqueConstraint("user_id", "product_id", name="uq_cart_user_product"),
+        CheckConstraint("quantity >= 1", name="ck_cart_items_quantity_positive"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

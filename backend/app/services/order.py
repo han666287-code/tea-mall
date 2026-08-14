@@ -4,15 +4,16 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import BusinessException
 from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.order_item import OrderItem
-from app.models.product import Product
 from app.models.user import User
+from app.repositories.order_repository import OrderRepository
+from app.repositories.product_repository import ProductRepository
 from app.schemas.order import OrderCreate
 from app.services import cache
 
@@ -28,9 +29,9 @@ def generate_order_no() -> str:
 
 def _get_order_for_user(db: Session, user_id: int, order_id: int) -> Order:
     """按归属取订单：不是本人的订单统一返回 404。"""
-    order = db.scalar(select(Order).where(Order.id == order_id, Order.user_id == user_id))
+    order = OrderRepository(db).get_for_user(user_id, order_id)
     if order is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
+        raise BusinessException("ORDER_NOT_FOUND", "订单不存在", status_code=404)
     return order
 
 
@@ -42,22 +43,14 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
         )
     )
     if not cart_items:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="购物车为空")
+        raise BusinessException("CART_EMPTY", "购物车为空", status_code=400)
 
     # 锁定购物车内所有商品行（FOR UPDATE），防止并发下单超卖；
     # 按 id 排序锁定，避免多商品订单之间产生死锁
     product_ids = [item.product_id for item in cart_items]
-    locked_products = {
-        p.id: p
-        for p in db.scalars(
-            select(Product)
-            .where(Product.id.in_(product_ids))
-            .order_by(Product.id)
-            .with_for_update()
-        )
-    }
+    locked_products = ProductRepository(db).get_locked_by_ids(product_ids)
     if len(locked_products) != len(set(product_ids)):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="商品不存在")
+        raise BusinessException("PRODUCT_NOT_FOUND", "商品不存在", status_code=400)
 
     # 先校验全部商品，任何一项不满足则整单失败
     prepared: list[tuple[Product, int, Decimal, Decimal]] = []
@@ -65,13 +58,14 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
     for cart_item in cart_items:
         product = locked_products[cart_item.product_id]
         if not product.is_on_sale:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"商品「{product.name}」已下架"
+            raise BusinessException(
+                "PRODUCT_OFF_SALE", f"商品「{product.name}」已下架", status_code=400
             )
         if cart_item.quantity > product.stock:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"商品「{product.name}」库存不足",
+            raise BusinessException(
+                "INSUFFICIENT_STOCK",
+                f"商品「{product.name}」库存不足",
+                status_code=400,
             )
         subtotal = product.price * cart_item.quantity
         total_amount += subtotal
@@ -112,19 +106,7 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
 
 
 def list_orders(db: Session, user_id: int, page: int, page_size: int) -> tuple[list[Order], int]:
-    total = db.scalar(
-        select(func.count()).select_from(Order).where(Order.user_id == user_id)
-    ) or 0
-    orders = list(
-        db.scalars(
-            select(Order)
-            .where(Order.user_id == user_id)
-            .order_by(Order.id.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
-    )
-    return orders, total
+    return OrderRepository(db).list_for_user_paginated(user_id, page, page_size)
 
 
 def get_order(db: Session, user: User, order_id: int) -> Order:
@@ -135,10 +117,9 @@ def pay_order(db: Session, user: User, order_id: int) -> Order:
     """模拟支付：仅 pending 状态可支付。"""
     order = _get_order_for_user(db, user.id, order_id)
     if order.status != STATUS_PENDING:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="当前状态不可支付")
+        raise BusinessException("ORDER_STATUS_INVALID", "当前状态不可支付", status_code=400)
     order.status = STATUS_PAID
     db.commit()
-    db.refresh(order)
     return order
 
 
@@ -146,13 +127,12 @@ def cancel_order(db: Session, user: User, order_id: int) -> Order:
     """取消未支付订单并恢复库存。"""
     order = _get_order_for_user(db, user.id, order_id)
     if order.status != STATUS_PENDING:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="当前状态不可取消")
+        raise BusinessException("ORDER_STATUS_INVALID", "当前状态不可取消", status_code=400)
     for item in order.items:
-        product = db.get(Product, item.product_id)
+        product = ProductRepository(db).get_by_id(item.product_id)
         if product is not None:
             product.stock += item.quantity
     order.status = STATUS_CANCELLED
     db.commit()
-    db.refresh(order)
     cache.invalidate_products()
     return order

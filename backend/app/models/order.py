@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -11,6 +11,9 @@ from app.database import Base
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint("total_amount >= 0", name="ck_orders_total_amount_non_negative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     order_no: Mapped[str] = mapped_column(String(32), unique=True, index=True)

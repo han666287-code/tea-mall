@@ -38,7 +38,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 docker compose up -d
 ```
 
-首次启动会自动构建前后端镜像、初始化 MySQL（建库建用户）、拉起 Redis，后端启动时自动创建数据表。
+首次启动会自动构建前后端镜像、初始化 MySQL（建库建用户）、拉起 Redis；后端容器启动前会自动执行数据库迁移（`alembic upgrade head`）建立全部数据表。
 
 ## 安全配置（JWT Secret）
 
@@ -156,6 +156,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env   # 首次运行：生成并填写随机 JWT_SECRET（方法见「安全配置」章节），按需修改数据库连接
+alembic upgrade head          # 按 Alembic 迁移建立/更新数据表
 uvicorn app.main:app --reload
 ```
 

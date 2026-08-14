@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.common import PageResponse
+
 
 class OrderCreate(BaseModel):
     receiver_name: str = Field(min_length=1, max_length=50)
@@ -39,11 +41,8 @@ class OrderResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class OrderListResponse(BaseModel):
-    items: list[OrderResponse]
-    total: int
-    page: int
-    page_size: int
+class OrderListResponse(PageResponse[OrderResponse]):
+    """订单分页响应（字段与前端 OrderListResult 一致）。"""
 
 
 class OrderStatusUpdate(BaseModel):

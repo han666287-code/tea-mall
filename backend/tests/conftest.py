@@ -1,6 +1,7 @@
 """pytest 公共配置：测试环境隔离、建表、测试管理员、缓存与数据清理。"""
 
 import os
+from pathlib import Path
 
 # 必须在导入 app 模块之前设置测试环境标识与连接目标，
 # 避免任何路径误连开发数据库 / 开发 Redis。
@@ -16,12 +17,14 @@ if "REDIS_URL" not in os.environ:
 from uuid import uuid4
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
-from app.config import ensure_testing_environment
+from app.config import UPLOAD_DIR, ensure_testing_environment
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine, get_db
+from app.database import SessionLocal, get_db
 from app.main import app
 from app.models import (  # noqa: F401  注册全部模型
     CartItem,
@@ -50,6 +53,14 @@ client = TestClient(app)
 TEST_ADMIN_USERNAME = "testadmin"
 TEST_ADMIN_PASSWORD = "adminpass123"
 
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+
+def upgrade_schema() -> None:
+    """通过 Alembic 迁移在测试库建立完整表结构，替代 create_all。"""
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    command.upgrade(cfg, "head")
+
 
 def create_test_admin() -> None:
     with SessionLocal() as db:
@@ -70,9 +81,14 @@ def create_test_admin() -> None:
 def prepare_database():
     # 环境保护：非测试库 / 非测试 Redis 时拒绝建表与清理
     ensure_testing_environment()
-    Base.metadata.create_all(bind=engine)
+    upload_baseline = {p.name for p in UPLOAD_DIR.iterdir() if p.is_file()}
+    upgrade_schema()
     create_test_admin()
     yield
+    # 清理测试期间创建的上传图片，避免 backend/uploads 残留累积
+    for p in UPLOAD_DIR.iterdir():
+        if p.is_file() and p.name not in upload_baseline:
+            p.unlink(missing_ok=True)
     with SessionLocal() as db:
         # 只清理测试库中由测试创建的数据，不影响任何非测试数据
         db.execute(delete(OrderItem))
