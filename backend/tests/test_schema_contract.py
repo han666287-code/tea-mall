@@ -27,10 +27,31 @@ EXPECTED_KEYS = {
         "description",
         "image_url",
         "is_on_sale",
+        "skus",
+        "images",
         "created_at",
     },
-    "CartItemResponse": {"id", "quantity", "product", "created_at"},
-    "OrderItemResponse": {"id", "product_id", "product_name", "price", "quantity", "subtotal"},
+    "ProductImageResponse": {"id", "url", "kind", "sort_order"},
+    "CartItemResponse": {"id", "quantity", "product", "sku", "created_at"},
+    "OrderItemResponse": {
+        "id",
+        "product_id",
+        "sku_id",
+        "product_name",
+        "price",
+        "quantity",
+        "subtotal",
+    },
+    "SkuResponse": {
+        "id",
+        "product_id",
+        "sku_code",
+        "price",
+        "stock",
+        "is_active",
+        "specs",
+        "created_at",
+    },
     "OrderResponse": {
         "id",
         "order_no",
@@ -139,11 +160,12 @@ def test_cart_and_order_responses_match_frontend_types(admin_headers, normal_use
 
     cart = client.post(
         "/api/cart/items",
-        json={"product_id": product["id"], "quantity": 2},
+        json={"sku_id": product["skus"][0]["id"], "quantity": 2},
         headers=normal_user_headers,
     ).json()
     assert set(cart.keys()) == EXPECTED_KEYS["CartItemResponse"]
     assert set(cart["product"].keys()) == EXPECTED_KEYS["ProductResponse"]
+    assert set(cart["sku"].keys()) == EXPECTED_KEYS["SkuResponse"]
     _assert_no_sensitive_keys(cart)
 
     cart_list = client.get("/api/cart/items", headers=normal_user_headers).json()

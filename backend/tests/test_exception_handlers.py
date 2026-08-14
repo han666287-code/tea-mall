@@ -107,11 +107,11 @@ def test_real_business_errors_have_codes(normal_user_headers):
 
     response = client.post(
         "/api/cart/items",
-        json={"product_id": 999999, "quantity": 1},
+        json={"sku_id": 999999, "quantity": 1},
         headers=normal_user_headers,
     )
     assert response.status_code == 404
-    assert response.json() == {"detail": "商品不存在", "code": "PRODUCT_NOT_FOUND"}
+    assert response.json() == {"detail": "SKU 不存在", "code": "SKU_NOT_FOUND"}
 
 
 def test_invalid_jwt_401_with_code():

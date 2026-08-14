@@ -19,6 +19,7 @@ from app.core.security import hash_password
 from app.database import SessionLocal
 from app.models.category import Category
 from app.models.product import Product
+from app.models.sku import Sku
 from app.models.user import User
 
 ADMIN_USERNAME_ENV = "ADMIN_USERNAME"
@@ -151,13 +152,22 @@ def create_categories_and_products() -> None:
             if db.scalar(select(Product).where(Product.name == item["name"])):
                 continue
             category = next(c for c in categories if c.name == item["category"])
+            product = Product(
+                name=item["name"],
+                category_id=category.id,
+                price=item["price"],
+                stock=item["stock"],
+                description=item["description"],
+            )
+            db.add(product)
+            db.flush()
             db.add(
-                Product(
-                    name=item["name"],
-                    category_id=category.id,
-                    price=item["price"],
-                    stock=item["stock"],
-                    description=item["description"],
+                Sku(
+                    product_id=product.id,
+                    sku_code=f"DEFAULT-{product.id}",
+                    price=product.price,
+                    stock=product.stock,
+                    is_active=True,
                 )
             )
         db.commit()

@@ -11,11 +11,12 @@ from app.core.exceptions import BusinessException
 from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.order_item import OrderItem
+from app.models.sku import Sku
 from app.models.user import User
 from app.repositories.order_repository import OrderRepository
-from app.repositories.product_repository import ProductRepository
+from app.repositories.sku_repository import SkuRepository
 from app.schemas.order import OrderCreate
-from app.services import cache
+from app.services import cache, product as product_service
 
 STATUS_PENDING = "pending"
 STATUS_PAID = "paid"
@@ -45,31 +46,38 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
     if not cart_items:
         raise BusinessException("CART_EMPTY", "购物车为空", status_code=400)
 
-    # 锁定购物车内所有商品行（FOR UPDATE），防止并发下单超卖；
-    # 按 id 排序锁定，避免多商品订单之间产生死锁
-    product_ids = [item.product_id for item in cart_items]
-    locked_products = ProductRepository(db).get_locked_by_ids(product_ids)
-    if len(locked_products) != len(set(product_ids)):
-        raise BusinessException("PRODUCT_NOT_FOUND", "商品不存在", status_code=400)
+    # 锁定购物车内所有 SKU 行（FOR UPDATE），防止并发下单超卖；
+    # 按 id 排序锁定，避免多 SKU 订单之间产生死锁
+    sku_ids = [item.sku_id for item in cart_items]
+    locked_skus = SkuRepository(db).get_locked_by_ids(sku_ids)
+    if len(locked_skus) != len(set(sku_ids)):
+        raise BusinessException("SKU_NOT_FOUND", "商品 SKU 不存在或已失效", status_code=400)
 
     # 先校验全部商品，任何一项不满足则整单失败
-    prepared: list[tuple[Product, int, Decimal, Decimal]] = []
+    prepared: list[tuple[CartItem, Sku, Decimal]] = []
     total_amount = Decimal("0.00")
     for cart_item in cart_items:
-        product = locked_products[cart_item.product_id]
+        sku = locked_skus[cart_item.sku_id]
+        product = sku.product
+        if product is None:
+            raise BusinessException("PRODUCT_NOT_FOUND", "商品不存在", status_code=400)
         if not product.is_on_sale:
             raise BusinessException(
                 "PRODUCT_OFF_SALE", f"商品「{product.name}」已下架", status_code=400
             )
-        if cart_item.quantity > product.stock:
+        if not sku.is_active:
+            raise BusinessException(
+                "SKU_DISABLED", f"商品「{product.name}」的该规格暂不可售", status_code=400
+            )
+        if cart_item.quantity > sku.stock:
             raise BusinessException(
                 "INSUFFICIENT_STOCK",
                 f"商品「{product.name}」库存不足",
                 status_code=400,
             )
-        subtotal = product.price * cart_item.quantity
+        subtotal = sku.price * cart_item.quantity
         total_amount += subtotal
-        prepared.append((product, cart_item.quantity, product.price, subtotal))
+        prepared.append((cart_item, sku, subtotal))
 
     order = Order(
         order_no=generate_order_no(),
@@ -80,22 +88,27 @@ def create_order(db: Session, user: User, data: OrderCreate) -> Order:
         receiver_phone=data.receiver_phone,
         receiver_address=data.receiver_address,
     )
-    for product, quantity, price, subtotal in prepared:
+    affected_product_ids: set[int] = set()
+    for cart_item, sku, subtotal in prepared:
+        product = sku.product
         order.items.append(
             OrderItem(
                 product_id=product.id,
+                sku_id=sku.id,
                 product_name=product.name,
-                price=price,
-                quantity=quantity,
+                price=sku.price,
+                quantity=cart_item.quantity,
                 subtotal=subtotal,
             )
         )
-        product.stock -= quantity
+        sku.stock -= cart_item.quantity
+        affected_product_ids.add(product.id)
 
     try:
         db.add(order)
         for cart_item in cart_items:
             db.delete(cart_item)
+        product_service.refresh_product_summaries(db, list(affected_product_ids))
         db.commit()
     except Exception:
         db.rollback()
@@ -128,10 +141,16 @@ def cancel_order(db: Session, user: User, order_id: int) -> Order:
     order = _get_order_for_user(db, user.id, order_id)
     if order.status != STATUS_PENDING:
         raise BusinessException("ORDER_STATUS_INVALID", "当前状态不可取消", status_code=400)
+    affected_product_ids: set[int] = set()
     for item in order.items:
-        product = ProductRepository(db).get_by_id(item.product_id)
-        if product is not None:
-            product.stock += item.quantity
+        affected_product_ids.add(item.product_id)
+        if item.sku_id is None:
+            # SKU 已被删除的历史订单项无法恢复库存，跳过
+            continue
+        sku = db.get(Sku, item.sku_id)
+        if sku is not None:
+            sku.stock += item.quantity
+    product_service.refresh_product_summaries(db, list(affected_product_ids))
     order.status = STATUS_CANCELLED
     db.commit()
     cache.invalidate_products()

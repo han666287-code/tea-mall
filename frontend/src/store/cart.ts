@@ -13,7 +13,7 @@ export const useCartStore = defineStore('cart', () => {
     items.value.reduce((sum, item) => sum + item.quantity, 0),
   )
   const totalPrice = computed(() =>
-    items.value.reduce((sum, item) => sum + item.quantity * Number(item.product.price), 0),
+    items.value.reduce((sum, item) => sum + item.quantity * Number(item.sku.price), 0),
   )
 
   async function fetchCart() {
@@ -31,8 +31,8 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
-  async function addToCart(productId: number, quantity = 1) {
-    await addCartItem({ product_id: productId, quantity })
+  async function addToCart(skuId: number, quantity = 1) {
+    await addCartItem({ sku_id: skuId, quantity })
     await fetchCart()
   }
 

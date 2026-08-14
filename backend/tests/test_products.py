@@ -57,6 +57,22 @@ def test_create_product_permissions(admin_headers, normal_user_headers):
     assert response.json()["category_name"] is not None
 
 
+def test_create_product_id_is_max_plus_one(admin_headers):
+    """新商品 ID = 现存最大商品 ID + 1（删除最大行后复用该 ID，不跳号）。"""
+    category_id = make_category(admin_headers)
+    first = make_product(admin_headers, category_id, unique_name()).json()
+    second = make_product(admin_headers, category_id, unique_name()).json()
+    assert second["id"] == first["id"] + 1
+
+    # 删除最大 ID 的商品后，再创建应复用"最大 ID + 1"（即刚删除的 ID）
+    assert (
+        client.delete(f"/api/products/{second['id']}", headers=admin_headers).status_code
+        == 204
+    )
+    third = make_product(admin_headers, category_id, unique_name()).json()
+    assert third["id"] == second["id"]
+
+
 def test_create_product_with_invalid_category(admin_headers):
     response = client.post(
         "/api/products",
@@ -108,6 +124,60 @@ def test_filter_by_category(admin_headers):
     names = [item["name"] for item in result["items"]]
     assert name_a in names
     assert name_b not in names
+
+
+def test_search_keyword_plus_category(admin_headers):
+    """关键词与分类组合过滤：命中词但不在该分类下的商品不应返回。"""
+    category_a = make_category(admin_headers)
+    category_b = make_category(admin_headers)
+    keyword = f"龙井{ uuid4().hex[:4] }"
+    name_a = f"test{keyword}甲"
+    name_b = f"test{keyword}乙"
+    make_product(admin_headers, category_a, name_a)
+    make_product(admin_headers, category_b, name_b)
+    result = client.get(
+        "/api/products", params={"keyword": keyword, "category_id": category_a}
+    ).json()
+    names = [item["name"] for item in result["items"]]
+    assert name_a in names
+    assert name_b not in names
+
+
+def test_search_off_sale_requires_admin(admin_headers):
+    """下架商品按关键词搜索：公开不可见，管理员 include_off_sale=true 可见。"""
+    category_id = make_category(admin_headers)
+    keyword = f"下架茶{ uuid4().hex[:4] }"
+    name = f"test{keyword}"
+    make_product(admin_headers, category_id, name, is_on_sale=False)
+
+    public = client.get("/api/products", params={"keyword": keyword}).json()
+    assert all(item["name"] != name for item in public["items"])
+    admin = client.get(
+        "/api/products",
+        params={"keyword": keyword, "include_off_sale": True},
+        headers=admin_headers,
+    ).json()
+    assert any(item["name"] == name for item in admin["items"])
+
+
+def test_search_category_plus_off_sale(admin_headers):
+    """分类与下架组合：管理员能看到该分类下的下架商品，公开看不到。"""
+    category_a = make_category(admin_headers)
+    category_b = make_category(admin_headers)
+    name_a_off = f"test分类下架{uuid4().hex[:4]}"
+    name_b_off = f"test分类下架{uuid4().hex[:4]}"
+    make_product(admin_headers, category_a, name_a_off, is_on_sale=False)
+    make_product(admin_headers, category_b, name_b_off, is_on_sale=False)
+
+    public = client.get("/api/products", params={"category_id": category_a}).json()
+    assert all(item["name"] != name_a_off for item in public["items"])
+    admin = client.get(
+        "/api/products",
+        params={"category_id": category_a, "include_off_sale": True},
+        headers=admin_headers,
+    ).json()
+    assert any(item["name"] == name_a_off for item in admin["items"])
+    assert all(item["name"] != name_b_off for item in admin["items"])
 
 
 def test_pagination(admin_headers):

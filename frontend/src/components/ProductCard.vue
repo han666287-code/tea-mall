@@ -31,7 +31,7 @@
           :loading="adding"
           @click.stop="handleAddToCart"
         >
-          加入购物车
+          {{ canDirectAdd ? '加入购物车' : '选规格' }}
         </el-button>
       </div>
     </div>
@@ -60,6 +60,8 @@ const authStore = useAuthStore()
 const cartStore = useCartStore()
 const adding = ref(false)
 
+const activeSkus = computed(() => (props.product.skus ?? []).filter((s) => s.is_active))
+const canDirectAdd = computed(() => activeSkus.value.length === 1)
 const priceText = computed(() => Number(props.product.price).toFixed(2))
 const stockText = computed(() =>
   props.product.stock > 0 ? `库存 ${props.product.stock}` : '已售罄',
@@ -70,6 +72,12 @@ function goDetail() {
 }
 
 async function handleAddToCart() {
+  if (!canDirectAdd.value) {
+    goDetail()
+    return
+  }
+  const skuId = activeSkus.value[0]?.id
+  if (!skuId) return
   if (!authStore.token) {
     ElMessage.warning('请先登录')
     router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
@@ -77,7 +85,7 @@ async function handleAddToCart() {
   }
   adding.value = true
   try {
-    await cartStore.addToCart(props.product.id, 1)
+    await cartStore.addToCart(skuId, 1)
     ElMessage.success('已加入购物车')
   } finally {
     adding.value = false

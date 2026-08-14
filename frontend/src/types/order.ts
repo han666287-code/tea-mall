@@ -3,6 +3,7 @@ export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancel
 export interface OrderItem {
   id: number
   product_id: number
+  sku_id: number | null
   product_name: string
   price: string
   quantity: number

@@ -45,12 +45,13 @@ def test_zero_cart_quantity_rejected_by_database(admin_headers, normal_user_head
         headers=admin_headers,
     ).json()
     user_id = client.get("/api/auth/me", headers=normal_user_headers).json()["id"]
+    sku_id = product["skus"][0]["id"]
     with engine.begin() as conn:
         with pytest.raises(DBAPIError):
             conn.execute(
                 text(
-                    "INSERT INTO cart_items (user_id, product_id, quantity, created_at, updated_at) "
-                    "VALUES (:uid, :pid, 0, NOW(), NOW())"
+                    "INSERT INTO cart_items (user_id, product_id, sku_id, quantity, created_at, updated_at) "
+                    "VALUES (:uid, :pid, :sku_id, 0, NOW(), NOW())"
                 ),
-                {"uid": user_id, "pid": product["id"]},
+                {"uid": user_id, "pid": product["id"], "sku_id": sku_id},
             )

@@ -37,7 +37,7 @@ def _create_product(
 def _add_to_cart(user_headers: dict, product_id: int, quantity: int = 1) -> dict:
     response = client.post(
         "/api/cart/items",
-        json={"product_id": product_id, "quantity": quantity},
+        json={"sku_id": product_id, "quantity": quantity},
         headers=user_headers,
     )
     assert response.status_code == 201
@@ -82,17 +82,17 @@ def test_admin_permission_403_code(normal_user_headers):
 def test_cart_error_codes(admin_headers, normal_user_headers):
     response = client.post(
         "/api/cart/items",
-        json={"product_id": 999999, "quantity": 1},
+        json={"sku_id": 999999, "quantity": 1},
         headers=normal_user_headers,
     )
     assert response.status_code == 404
-    assert response.json()["code"] == "PRODUCT_NOT_FOUND"
+    assert response.json()["code"] == "SKU_NOT_FOUND"
 
     category = _create_category(admin_headers, f"testerr{uuid4().hex[:6]}")
     out_of_stock = _create_product(admin_headers, category["id"], stock=0)
     response = client.post(
         "/api/cart/items",
-        json={"product_id": out_of_stock["id"], "quantity": 1},
+        json={"sku_id": out_of_stock["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     )
     assert response.status_code == 400
@@ -101,11 +101,34 @@ def test_cart_error_codes(admin_headers, normal_user_headers):
     off_sale = _create_product(admin_headers, category["id"], is_on_sale=False)
     response = client.post(
         "/api/cart/items",
-        json={"product_id": off_sale["id"], "quantity": 1},
+        json={"sku_id": off_sale["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     )
     assert response.status_code == 400
     assert response.json()["code"] == "PRODUCT_OFF_SALE"
+
+    disabled = _create_product(admin_headers, category["id"], stock=5)
+    admin_put = client.put(
+        f"/api/products/{disabled['id']}/skus",
+        json=[
+            {
+                "sku_code": "ERR-DISABLED",
+                "price": 10,
+                "stock": 5,
+                "is_active": False,
+                "specs": [{"name": "净含量", "value": "100g"}],
+            }
+        ],
+        headers=admin_headers,
+    )
+    assert admin_put.status_code == 200
+    response = client.post(
+        "/api/cart/items",
+        json={"sku_id": admin_put.json()["skus"][0]["id"], "quantity": 1},
+        headers=normal_user_headers,
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "SKU_DISABLED"
 
 
 def test_order_error_codes(admin_headers, normal_user_headers):
@@ -127,7 +150,7 @@ def test_order_error_codes(admin_headers, normal_user_headers):
 
     category = _create_category(admin_headers, f"testerr{uuid4().hex[:6]}")
     product = _create_product(admin_headers, category["id"])
-    _add_to_cart(normal_user_headers, product["id"])
+    _add_to_cart(normal_user_headers, product["skus"][0]["id"])
     order = _create_order(normal_user_headers)
     assert client.post(
         f"/api/orders/{order['id']}/pay", headers=normal_user_headers
@@ -142,7 +165,7 @@ def test_order_error_codes(admin_headers, normal_user_headers):
 def test_admin_order_error_codes(admin_headers, normal_user_headers):
     category = _create_category(admin_headers, f"testerr{uuid4().hex[:6]}")
     product = _create_product(admin_headers, category["id"])
-    _add_to_cart(normal_user_headers, product["id"])
+    _add_to_cart(normal_user_headers, product["skus"][0]["id"])
     order = _create_order(normal_user_headers)
 
     response = client.patch(

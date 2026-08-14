@@ -65,7 +65,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="editingId ? '编辑商品' : '新增商品'"
-      width="560px"
+      width="840px"
       align-center
     >
       <el-form :model="form" label-width="84px">
@@ -108,6 +108,96 @@
             <span v-if="selectedFile" class="upload-name">{{ selectedFile.name }}</span>
           </div>
         </el-form-item>
+        <el-divider />
+        <el-form-item label="SKU 规格">
+          <div class="sku-editor">
+            <el-input
+              v-model="specNamesText"
+              placeholder="规格名（逗号分隔），如：净含量,包装；留空表示无规格"
+              class="spec-names-input"
+            />
+            <el-table :data="skuRows" size="small" border class="sku-table">
+              <el-table-column
+                v-for="(name, index) in specNames"
+                :key="`${name}-${index}`"
+                :label="name || '规格值'"
+              >
+                <template #default="{ row }">
+                  <el-input v-model="row.values[index]" placeholder="如 100g" />
+                </template>
+              </el-table-column>
+              <el-table-column label="SKU 编码" width="150">
+                <template #default="{ row }">
+                  <el-input v-model="row.sku_code" placeholder="留空自动生成" />
+                </template>
+              </el-table-column>
+              <el-table-column label="价格" width="120">
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.price"
+                    :min="0"
+                    :precision="2"
+                    :controls="false"
+                    class="sku-num"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="库存" width="110">
+                <template #default="{ row }">
+                  <el-input-number
+                    v-model="row.stock"
+                    :min="0"
+                    :controls="false"
+                    class="sku-num"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="启用" width="70" align="center">
+                <template #default="{ row }">
+                  <el-switch v-model="row.is_active" />
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="76" align="center">
+                <template #default="{ row }">
+                  <el-button size="small" type="danger" plain @click="removeSkuRow(row)">
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="sku-actions">
+              <el-button size="small" @click="addSkuRow">
+                <el-icon><Plus /></el-icon>
+                添加 SKU 行
+              </el-button>
+              <span class="sku-hint">多规格时价格/库存以 SKU 行为准</span>
+            </div>
+          </div>
+        </el-form-item>
+        <el-form-item label="详情图">
+          <div class="detail-images">
+            <div v-for="img in detailImages" :key="img.id" class="detail-img-item">
+              <el-image :src="img.url" fit="cover" class="detail-img-thumb" />
+              <el-button size="small" type="danger" plain @click="removeDetailImage(img)">
+                删除
+              </el-button>
+            </div>
+            <div v-for="(file, index) in selectedDetailFiles" :key="`new-${index}`" class="detail-img-item">
+              <span class="detail-img-name">{{ file.name }}</span>
+              <el-button size="small" plain @click="removeSelectedFile(index)">移除</el-button>
+            </div>
+            <el-upload
+              :auto-upload="false"
+              multiple
+              accept="image/*"
+              :show-file-list="false"
+              :on-change="handleDetailFilesChange"
+            >
+              <el-button>选择详情图</el-button>
+            </el-upload>
+            <span class="sku-hint">可多选，保存时上传</span>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -121,19 +211,21 @@
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadFile } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 
 import { getCategories } from '@/api/categories'
 import {
   createProduct,
   deleteProduct,
+  deleteProductImage,
   getProducts,
   updateProduct,
+  uploadProductImages,
   uploadProductImage,
 } from '@/api/products'
 import PaginationBar from '@/components/PaginationBar.vue'
 import type { Category } from '@/types/category'
-import type { Product } from '@/types/product'
+import type { Product, ProductImage, ProductPayload } from '@/types/product'
 
 const products = ref<Product[]>([])
 const categories = ref<Category[]>([])
@@ -144,7 +236,13 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const selectedFile = ref<File | null>(null)
+const detailImages = ref<ProductImage[]>([])
+const selectedDetailFiles = ref<File[]>([])
 const loading = ref(false)
+const specNamesText = ref('')
+const skuRows = ref<
+  { sku_code: string; price: number; stock: number; is_active: boolean; values: string[] }[]
+>([])
 const form = reactive({
   name: '',
   category_id: undefined as number | undefined,
@@ -154,6 +252,13 @@ const form = reactive({
   image_url: '',
   is_on_sale: true,
 })
+
+const specNames = computed(() =>
+  specNamesText.value
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean),
+)
 
 async function load() {
   loading.value = true
@@ -182,6 +287,9 @@ function openCreate() {
     is_on_sale: true,
   })
   selectedFile.value = null
+  detailImages.value = []
+  selectedDetailFiles.value = []
+  resetSkuEditor()
   dialogVisible.value = true
 }
 
@@ -197,7 +305,83 @@ function openEdit(row: Product) {
     is_on_sale: row.is_on_sale,
   })
   selectedFile.value = null
+  detailImages.value = (row.images ?? []).filter((img) => img.kind === 'detail')
+  selectedDetailFiles.value = []
+  loadSkuEditor(row)
   dialogVisible.value = true
+}
+
+function handleDetailFilesChange(uploadFile: { raw?: File }) {
+  if (uploadFile.raw) {
+    selectedDetailFiles.value.push(uploadFile.raw)
+  }
+}
+
+async function removeDetailImage(img: ProductImage) {
+  if (!editingId.value) return
+  try {
+    await deleteProductImage(editingId.value, img.url)
+    detailImages.value = detailImages.value.filter((item) => item.id !== img.id)
+    ElMessage.success('已删除详情图')
+  } catch {
+    // 错误提示由拦截器统一处理
+  }
+}
+
+function removeSelectedFile(index: number) {
+  selectedDetailFiles.value.splice(index, 1)
+}
+
+function resetSkuEditor() {
+  specNamesText.value = ''
+  skuRows.value = [{ sku_code: '', price: 0, stock: 0, is_active: true, values: [] }]
+}
+
+function loadSkuEditor(product: Product) {
+  const skus = product.skus ?? []
+  if (!skus.length) {
+    resetSkuEditor()
+    return
+  }
+  const names = Array.from(new Set(skus[0].specs.map((x) => x.name)))
+  specNamesText.value = names.join(',')
+  skuRows.value = skus.map((sku) => ({
+    sku_code: sku.sku_code,
+    price: Number(sku.price),
+    stock: sku.stock,
+    is_active: sku.is_active,
+    values: names.map((n) => sku.specs.find((x) => x.name === n)?.value ?? ''),
+  }))
+}
+
+function addSkuRow() {
+  skuRows.value.push({
+    sku_code: '',
+    price: 0,
+    stock: 0,
+    is_active: true,
+    values: specNames.value.map(() => ''),
+  })
+}
+
+function removeSkuRow(row: { sku_code: string; price: number; stock: number; is_active: boolean; values: string[] }) {
+  if (skuRows.value.length <= 1) {
+    ElMessage.warning('至少保留一个 SKU')
+    return
+  }
+  skuRows.value = skuRows.value.filter((r) => r !== row)
+}
+
+function buildSkusPayload() {
+  return skuRows.value.map((row) => ({
+    sku_code: row.sku_code.trim() || undefined,
+    price: row.price,
+    stock: row.stock,
+    is_active: row.is_active,
+    specs: specNames.value
+      .map((name, index) => ({ name, value: row.values[index] || '' }))
+      .filter((x) => x.value.trim()),
+  }))
 }
 
 function handleFileChange(file: UploadFile) {
@@ -211,9 +395,19 @@ async function handleSave() {
     ElMessage.warning('请填写商品名称并选择分类')
     return
   }
+  if (skuRows.value.length === 1) {
+    // 单 SKU：商品基本信息里的价格/库存同步到 SKU 行
+    skuRows.value[0].price = form.price
+    skuRows.value[0].stock = form.stock
+  }
+  const skus = buildSkusPayload()
+  if (skus.length > 1 && specNames.value.length === 0) {
+    ElMessage.warning('多个 SKU 需要填写规格名（如：净含量）')
+    return
+  }
   saving.value = true
   try {
-    const payload = {
+    const payload: ProductPayload = {
       name: form.name.trim(),
       category_id: form.category_id!,
       price: form.price,
@@ -221,10 +415,18 @@ async function handleSave() {
       description: form.description,
       image_url: form.image_url,
       is_on_sale: form.is_on_sale,
+      skus,
     }
     let product: Product
     if (editingId.value) {
-      const { data } = await updateProduct(editingId.value, payload)
+      const { data } = await updateProduct(editingId.value, {
+        name: payload.name,
+        category_id: payload.category_id,
+        description: payload.description,
+        image_url: payload.image_url,
+        is_on_sale: payload.is_on_sale,
+        skus,
+      })
       product = data
     } else {
       const { data } = await createProduct(payload)
@@ -232,6 +434,10 @@ async function handleSave() {
     }
     if (selectedFile.value) {
       const { data } = await uploadProductImage(product.id, selectedFile.value)
+      product = data
+    }
+    if (selectedDetailFiles.value.length) {
+      const { data } = await uploadProductImages(product.id, selectedDetailFiles.value)
       product = data
     }
     ElMessage.success('保存成功')
@@ -382,6 +588,66 @@ onMounted(async () => {
 
 .upload-name {
   max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sku-editor {
+  width: 100%;
+}
+
+.spec-names-input {
+  margin-bottom: 10px;
+}
+
+.sku-table {
+  margin-bottom: 10px;
+}
+
+.sku-num {
+  width: 100%;
+}
+
+.sku-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sku-hint {
+  font-size: 12px;
+  color: var(--tea-muted);
+}
+
+.detail-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.detail-img-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid var(--tea-line-soft);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-img-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+}
+
+.detail-img-name {
+  max-width: 120px;
+  font-size: 12px;
+  color: var(--tea-ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

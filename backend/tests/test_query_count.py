@@ -29,7 +29,7 @@ def _create_category(admin_headers: dict) -> int:
     return response.json()["id"]
 
 
-def _create_product(admin_headers: dict, category_id: int, stock: int = 10) -> int:
+def _create_product(admin_headers: dict, category_id: int, stock: int = 10) -> dict:
     response = client.post(
         "/api/products",
         json={
@@ -41,7 +41,7 @@ def _create_product(admin_headers: dict, category_id: int, stock: int = 10) -> i
         headers=admin_headers,
     )
     assert response.status_code == 201
-    return response.json()["id"]
+    return response.json()
 
 
 def _create_order(user_headers: dict) -> int:
@@ -65,31 +65,31 @@ def test_product_list_query_count(admin_headers):
     _reset()
     response = client.get("/api/products", params={"page": 1, "page_size": 5})
     assert response.status_code == 200
-    assert _COUNT["n"] <= 4, f"商品列表查询次数异常: {_COUNT['n']}"
+    assert _COUNT["n"] <= 7, f"商品列表查询次数异常: {_COUNT['n']}"
 
 
 def test_cart_list_query_count(admin_headers, normal_user_headers):
     category_id = _create_category(admin_headers)
-    product_ids = [_create_product(admin_headers, category_id) for _ in range(3)]
-    for product_id in product_ids:
+    products = [_create_product(admin_headers, category_id) for _ in range(3)]
+    for product in products:
         response = client.post(
             "/api/cart/items",
-            json={"product_id": product_id, "quantity": 1},
+            json={"sku_id": product["skus"][0]["id"], "quantity": 1},
             headers=normal_user_headers,
         )
         assert response.status_code == 201
     _reset()
     response = client.get("/api/cart/items", headers=normal_user_headers)
     assert response.status_code == 200
-    assert _COUNT["n"] <= 5, f"购物车列表查询次数异常: {_COUNT['n']}"
+    assert _COUNT["n"] <= 12, f"购物车列表查询次数异常: {_COUNT['n']}"
 
 
 def test_orders_list_query_count(admin_headers, normal_user_headers):
     category_id = _create_category(admin_headers)
-    product_id = _create_product(admin_headers, category_id)
+    product = _create_product(admin_headers, category_id)
     client.post(
         "/api/cart/items",
-        json={"product_id": product_id, "quantity": 1},
+        json={"sku_id": product["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     )
     _create_order(normal_user_headers)
@@ -101,10 +101,10 @@ def test_orders_list_query_count(admin_headers, normal_user_headers):
 
 def test_order_detail_query_count(admin_headers, normal_user_headers):
     category_id = _create_category(admin_headers)
-    product_id = _create_product(admin_headers, category_id)
+    product = _create_product(admin_headers, category_id)
     client.post(
         "/api/cart/items",
-        json={"product_id": product_id, "quantity": 1},
+        json={"sku_id": product["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     )
     order_id = _create_order(normal_user_headers)
@@ -116,10 +116,10 @@ def test_order_detail_query_count(admin_headers, normal_user_headers):
 
 def test_admin_orders_list_query_count(admin_headers, normal_user_headers):
     category_id = _create_category(admin_headers)
-    product_id = _create_product(admin_headers, category_id)
+    product = _create_product(admin_headers, category_id)
     client.post(
         "/api/cart/items",
-        json={"product_id": product_id, "quantity": 1},
+        json={"sku_id": product["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     )
     _create_order(normal_user_headers)

@@ -4,6 +4,17 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.product import Product
+from app.models.product_image import ProductImage
+from app.models.sku import ProductSpecValue, Sku
+
+
+PRODUCT_LIST_LOADS = (
+    selectinload(Product.category),
+    selectinload(Product.images),
+    selectinload(Product.skus)
+    .selectinload(Sku.spec_values)
+    .selectinload(ProductSpecValue.spec),
+)
 
 
 class ProductRepository:
@@ -13,17 +24,11 @@ class ProductRepository:
         self.db = db
 
     def get_by_id(self, product_id: int) -> Product | None:
-        return self.db.get(Product, product_id)
-
-    def get_locked_by_ids(self, product_ids: list[int]) -> dict[int, Product]:
-        """按 id 排序加行锁（FOR UPDATE），返回 {product_id: product}，供下单防超卖。"""
-        rows = self.db.scalars(
+        return self.db.scalar(
             select(Product)
-            .where(Product.id.in_(product_ids))
-            .order_by(Product.id)
-            .with_for_update()
+            .options(*PRODUCT_LIST_LOADS)
+            .where(Product.id == product_id)
         )
-        return {product.id: product for product in rows}
 
     def count_by_category(self, category_id: int) -> int:
         return (
@@ -62,7 +67,7 @@ class ProductRepository:
         )
         products = list(
             self.db.scalars(
-                stmt.options(selectinload(Product.category))
+                stmt.options(*PRODUCT_LIST_LOADS)
                 .order_by(Product.id.desc())
                 .offset((page - 1) * page_size)
                 .limit(page_size)

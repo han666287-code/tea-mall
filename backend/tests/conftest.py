@@ -32,6 +32,11 @@ from app.models import (  # noqa: F401  注册全部模型
     Order,
     OrderItem,
     Product,
+    ProductImage,
+    ProductSpec,
+    ProductSpecValue,
+    Sku,
+    SkuSpecValue,
     User,
 )
 from app.services import cache
@@ -95,6 +100,11 @@ def prepare_database():
         db.execute(delete(OrderItem))
         db.execute(delete(Order))
         db.execute(delete(CartItem))
+        db.execute(delete(SkuSpecValue))
+        db.execute(delete(ProductSpecValue))
+        db.execute(delete(Sku))
+        db.execute(delete(ProductSpec))
+        db.execute(delete(ProductImage))
         db.execute(delete(Product).where(Product.name.like("test%")))
         db.execute(delete(Category).where(Category.name.like("test%")))
         db.execute(delete(User).where(User.username.like("test%")))

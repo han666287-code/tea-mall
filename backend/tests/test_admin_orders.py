@@ -14,7 +14,7 @@ def make_category(admin_headers: dict) -> int:
     return response.json()["id"]
 
 
-def make_product(admin_headers: dict, category_id: int, stock: int = 10) -> int:
+def make_product(admin_headers: dict, category_id: int, stock: int = 10) -> dict:
     response = client.post(
         "/api/products",
         json={
@@ -25,14 +25,16 @@ def make_product(admin_headers: dict, category_id: int, stock: int = 10) -> int:
         },
         headers=admin_headers,
     )
-    return response.json()["id"]
+    return response.json()
 
 
 def create_order_for_user(user_headers: dict, admin_headers: dict) -> dict:
     category_id = make_category(admin_headers)
-    product_id = make_product(admin_headers, category_id)
+    product = make_product(admin_headers, category_id)
     client.post(
-        "/api/cart/items", json={"product_id": product_id, "quantity": 1}, headers=user_headers
+        "/api/cart/items",
+        json={"sku_id": product["skus"][0]["id"], "quantity": 1},
+        headers=user_headers,
     )
     response = client.post(
         "/api/orders",
@@ -112,9 +114,11 @@ def test_invalid_transitions_rejected(admin_headers, normal_user_headers):
 
 def test_admin_cancel_paid_order_restores_stock(admin_headers, normal_user_headers):
     category_id = make_category(admin_headers)
-    product_id = make_product(admin_headers, category_id, stock=10)
+    product = make_product(admin_headers, category_id, stock=10)
     client.post(
-        "/api/cart/items", json={"product_id": product_id, "quantity": 2}, headers=normal_user_headers
+        "/api/cart/items",
+        json={"sku_id": product["skus"][0]["id"], "quantity": 2},
+        headers=normal_user_headers,
     )
     order = client.post(
         "/api/orders",
@@ -126,7 +130,7 @@ def test_admin_cancel_paid_order_restores_stock(admin_headers, normal_user_heade
         headers=normal_user_headers,
     ).json()
     client.post(f"/api/orders/{order['id']}/pay", headers=normal_user_headers)
-    assert client.get(f"/api/products/{product_id}").json()["stock"] == 8
+    assert client.get(f"/api/products/{product['id']}").json()["stock"] == 8
 
     cancelled = client.patch(
         f"/api/admin/orders/{order['id']}/status",
@@ -135,7 +139,7 @@ def test_admin_cancel_paid_order_restores_stock(admin_headers, normal_user_heade
     )
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
-    assert client.get(f"/api/products/{product_id}").json()["stock"] == 10
+    assert client.get(f"/api/products/{product['id']}").json()["stock"] == 10
 
 
 def test_admin_status_update_requires_admin(normal_user_headers):

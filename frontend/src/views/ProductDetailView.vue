@@ -26,7 +26,7 @@
               </svg>
               <span>暂无图片</span>
             </div>
-            <span v-if="product.stock <= 0" class="soldout-ribbon">已售罄</span>
+            <span v-if="effectiveStock <= 0" class="soldout-ribbon">已售罄</span>
           </div>
         </div>
         <div class="detail-info">
@@ -43,7 +43,25 @@
             <span>{{ stockText }}</span>
           </div>
           <div class="info-divider"></div>
-          <div v-if="product.stock > 0" class="detail-buy">
+          <div v-if="hasSpecs" class="spec-selector">
+            <div v-for="group in specGroups" :key="group.name" class="spec-group">
+              <span class="spec-name">{{ group.name }}</span>
+              <div class="spec-options">
+                <button
+                  v-for="option in group.options"
+                  :key="option.value"
+                  type="button"
+                  class="spec-option"
+                  :class="{ active: isSpecSelected(group.name, option.value) }"
+                  :disabled="!optionSelectable(group.name, option.value)"
+                  @click="selectSpec(group.name, option.value)"
+                >
+                  {{ option.value }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-if="effectiveStock > 0" class="detail-buy">
             <div class="quantity-box">
               <button
                 class="qty-btn"
@@ -57,7 +75,7 @@
               <button
                 class="qty-btn"
                 type="button"
-                :disabled="buyQuantity >= product.stock"
+                :disabled="buyQuantity >= effectiveStock"
                 @click="buyQuantity++"
               >
                 +
@@ -72,6 +90,19 @@
             <h3>商品介绍</h3>
             <p>{{ product.description || '暂无描述' }}</p>
           </div>
+        </div>
+      </div>
+      <div v-if="detailImages.length" class="detail-gallery">
+        <h3>商品详情</h3>
+        <div class="gallery-grid">
+          <el-image
+            v-for="img in detailImages"
+            :key="img.id"
+            :src="img.url"
+            :preview-src-list="detailImageUrls"
+            fit="cover"
+            class="gallery-img"
+          />
         </div>
       </div>
       <EmptyState v-else-if="notFound" message="商品不存在或已下架" />
@@ -92,7 +123,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import type { Product } from '@/types/product'
+import type { Product, Sku } from '@/types/product'
 
 const route = useRoute()
 const router = useRouter()
@@ -103,23 +134,92 @@ const notFound = ref(false)
 const buyQuantity = ref(1)
 const adding = ref(false)
 const loading = ref(true)
+const selectedSpecs = ref<Record<string, string>>({})
+
+const activeSkus = computed(() => (product.value?.skus ?? []).filter((s) => s.is_active))
+const hasSpecs = computed(() => activeSkus.value.some((s) => s.specs.length > 0))
+
+const specGroups = computed(() => {
+  const groups: { name: string; options: { value: string }[] }[] = []
+  if (!product.value) return groups
+  const names = Array.from(
+    new Set(activeSkus.value.flatMap((s) => s.specs.map((x) => x.name))),
+  )
+  for (const name of names) {
+    const values = Array.from(
+      new Set(
+        activeSkus.value.flatMap((s) => s.specs.filter((x) => x.name === name).map((x) => x.value)),
+      ),
+    )
+    groups.push({ name, options: values.map((value) => ({ value })) })
+  }
+  return groups
+})
+
+const detailImages = computed(() =>
+  (product.value?.images ?? []).filter((img) => img.kind === 'detail'),
+)
+const detailImageUrls = computed(() => detailImages.value.map((img) => img.url))
+
+function skuMatches(sku: Sku, sel: Record<string, string>) {
+  return Object.entries(sel).every(([name, value]) =>
+    sku.specs.some((x) => x.name === name && x.value === value),
+  )
+}
+
+function isSpecSelected(name: string, value: string) {
+  return selectedSpecs.value[name] === value
+}
+
+function optionSelectable(name: string, value: string) {
+  const tentative = { ...selectedSpecs.value, [name]: value }
+  return activeSkus.value.some((s) => skuMatches(s, tentative))
+}
+
+function selectSpec(name: string, value: string) {
+  if (!optionSelectable(name, value)) return
+  selectedSpecs.value = { ...selectedSpecs.value, [name]: value }
+}
+
+const effectiveSku = computed(() => {
+  if (!product.value) return null
+  const sel = selectedSpecs.value
+  const names = Object.keys(sel)
+  if (names.length === 0) return activeSkus.value[0] ?? null
+  return (
+    activeSkus.value.find(
+      (s) => names.length === s.specs.length && skuMatches(s, sel),
+    ) ?? null
+  )
+})
 
 const priceText = computed(() =>
-  product.value ? Number(product.value.price).toFixed(2) : '0.00',
+  effectiveSku.value
+    ? Number(effectiveSku.value.price).toFixed(2)
+    : Number(product.value?.price ?? 0).toFixed(2),
 )
-const inStock = computed(() => (product.value ? product.value.stock > 0 : false))
-const isLowStock = computed(() => (product.value ? product.value.stock > 0 && product.value.stock <= 10 : false))
+const effectiveStock = computed(() => effectiveSku.value?.stock ?? product.value?.stock ?? 0)
+const inStock = computed(() => effectiveStock.value > 0)
+const isLowStock = computed(() => effectiveStock.value > 0 && effectiveStock.value <= 10)
 const stockText = computed(() => {
   if (!product.value) return ''
-  if (product.value.stock <= 0) return '已售罄'
-  if (product.value.stock <= 10) return `库存紧张，仅剩 ${product.value.stock} 件`
-  return `现货充足 · 库存 ${product.value.stock} 件`
+  if (effectiveStock.value <= 0) return '已售罄'
+  if (effectiveStock.value <= 10) return `库存紧张，仅剩 ${effectiveStock.value} 件`
+  return `现货充足 · 库存 ${effectiveStock.value} 件`
 })
 
 onMounted(async () => {
   try {
     const { data } = await getProduct(Number(route.params.id))
     product.value = data
+    if (data.skus?.length) {
+      const first = data.skus.find((s) => s.is_active) ?? data.skus[0]
+      const sel: Record<string, string> = {}
+      for (const spec of first.specs) {
+        sel[spec.name] = spec.value
+      }
+      selectedSpecs.value = sel
+    }
   } catch {
     notFound.value = true
   } finally {
@@ -129,6 +229,10 @@ onMounted(async () => {
 
 async function handleAddToCart() {
   if (!product.value) return
+  if (hasSpecs.value && !effectiveSku.value) {
+    ElMessage.warning('请选择规格')
+    return
+  }
   if (!authStore.token) {
     ElMessage.warning('请先登录')
     router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
@@ -136,7 +240,12 @@ async function handleAddToCart() {
   }
   adding.value = true
   try {
-    await cartStore.addToCart(product.value.id, buyQuantity.value)
+    const skuId = effectiveSku.value?.id
+    if (!skuId) {
+      ElMessage.warning('请选择规格')
+      return
+    }
+    await cartStore.addToCart(skuId, buyQuantity.value)
     ElMessage.success('已加入购物车')
   } finally {
     adding.value = false
@@ -170,6 +279,56 @@ async function handleAddToCart() {
   border: 1px solid var(--tea-line-soft);
   border-radius: var(--tea-radius-lg);
   box-shadow: var(--tea-shadow-sm);
+}
+
+.detail-gallery {
+  margin-top: 32px;
+  padding: 28px;
+  background: var(--tea-surface);
+  border: 1px solid var(--tea-line-soft);
+  border-radius: var(--tea-radius-lg);
+  box-shadow: var(--tea-shadow-sm);
+}
+
+.detail-gallery h3 {
+  margin: 0 0 18px;
+  font-family: var(--tea-font-serif);
+  font-size: 17px;
+  letter-spacing: 0.14em;
+  color: var(--tea-ink);
+  position: relative;
+  padding-left: 14px;
+}
+
+.detail-gallery h3::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--tea-gold);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.gallery-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  border: 1px solid var(--tea-line-soft);
+  cursor: zoom-in;
+}
+
+@media (max-width: 900px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .detail-media {
@@ -276,6 +435,63 @@ async function handleAddToCart() {
   height: 1px;
   margin: 24px 0;
   background: var(--tea-line-soft);
+}
+
+.spec-selector {
+  margin-bottom: 24px;
+}
+
+.spec-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.spec-group:last-child {
+  margin-bottom: 0;
+}
+
+.spec-name {
+  font-size: 13px;
+  color: var(--tea-muted);
+  min-width: 56px;
+}
+
+.spec-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spec-option {
+  padding: 8px 16px;
+  border: 1px solid var(--tea-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--tea-ink-2);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.spec-option:hover:not(:disabled) {
+  border-color: var(--tea-gold);
+  color: var(--tea-primary);
+}
+
+.spec-option.active {
+  border-color: var(--tea-gold);
+  background: var(--tea-gold-soft);
+  color: var(--tea-primary);
+  font-weight: 600;
+}
+
+.spec-option:disabled {
+  color: #c9c3b4;
+  cursor: not-allowed;
+  background: #f7f4ec;
 }
 
 .detail-buy {

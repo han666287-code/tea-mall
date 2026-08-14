@@ -93,7 +93,7 @@ def test_update_flows_response_schema_stable(admin_headers, normal_user_headers)
 
     cart_item = client.post(
         "/api/cart/items",
-        json={"product_id": product["id"], "quantity": 1},
+        json={"sku_id": product["skus"][0]["id"], "quantity": 1},
         headers=normal_user_headers,
     ).json()
     updated = client.put(

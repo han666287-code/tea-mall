@@ -20,8 +20,8 @@
                 />
                 <div v-else class="item-img item-ph">暂无图</div>
                 <span class="item-name">{{ row.product.name }}</span>
-                <span class="item-price">¥{{ Number(row.product.price).toFixed(2) }} × {{ row.quantity }}</span>
-                <span class="item-subtotal">¥{{ (row.quantity * Number(row.product.price)).toFixed(2) }}</span>
+                <span class="item-price">¥{{ Number(row.sku.price).toFixed(2) }} × {{ row.quantity }}</span>
+                <span class="item-subtotal">¥{{ (row.quantity * Number(row.sku.price)).toFixed(2) }}</span>
               </div>
             </div>
             <div class="panel">

@@ -18,6 +18,10 @@ class OrderItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    # SKU 快照关联：SKU 被删除后置 NULL，不影响历史订单展示
+    sku_id: Mapped[int | None] = mapped_column(
+        ForeignKey("skus.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     product_name: Mapped[str] = mapped_column(String(100))
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     quantity: Mapped[int] = mapped_column(Integer)
@@ -25,3 +29,4 @@ class OrderItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     order = relationship("Order", back_populates="items")
+    sku = relationship("Sku")

@@ -41,6 +41,24 @@ class Product(Base):
     )
 
     category = relationship("Category")
+    skus = relationship(
+        "Sku",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="Sku.id",
+    )
+    specs = relationship(
+        "ProductSpec",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductSpec.id",
+    )
+    images = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductImage.sort_order.asc(), ProductImage.id.asc()",
+    )
 
     @property
     def category_name(self) -> str | None:

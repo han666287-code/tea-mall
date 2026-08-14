@@ -18,6 +18,7 @@ class OrderCreate(BaseModel):
 class OrderItemResponse(BaseModel):
     id: int
     product_id: int
+    sku_id: int | None
     product_name: str
     price: Decimal
     quantity: int

@@ -1,13 +1,14 @@
-import type { Product } from './product'
+import type { Product, Sku } from './product'
 
 export interface CartItem {
   id: number
   quantity: number
   product: Product
+  sku: Sku
   created_at: string
 }
 
 export interface CartItemPayload {
-  product_id: number
+  sku_id: number
   quantity: number
 }

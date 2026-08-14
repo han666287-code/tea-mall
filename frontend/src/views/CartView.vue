@@ -29,7 +29,8 @@
                 {{ row.product.name }}
               </router-link>
               <span class="row-cat">{{ row.product.category_name || '甄选好茶' }}</span>
-              <div class="row-price">¥{{ Number(row.product.price).toFixed(2) }}</div>
+              <span v-if="skuSpecText(row)" class="row-spec">{{ skuSpecText(row) }}</span>
+              <div class="row-price">¥{{ Number(row.sku.price).toFixed(2) }}</div>
             </div>
             <div class="qty-stepper">
               <button
@@ -44,13 +45,13 @@
               <button
                 class="qty-btn"
                 type="button"
-                :disabled="row.quantity >= row.product.stock"
+                :disabled="row.quantity >= row.sku.stock"
                 @click="handleQuantity(row, row.quantity + 1)"
               >
                 +
               </button>
             </div>
-            <div class="row-subtotal">¥{{ (row.quantity * Number(row.product.price)).toFixed(2) }}</div>
+            <div class="row-subtotal">¥{{ (row.quantity * Number(row.sku.price)).toFixed(2) }}</div>
             <el-button link class="row-remove" @click="handleRemove(row)">
               <el-icon><Delete /></el-icon>
             </el-button>
@@ -94,6 +95,12 @@ const router = useRouter()
 
 function goCheckout() {
   router.push('/checkout')
+}
+
+function skuSpecText(row: CartItem): string {
+  return (row.sku.specs ?? [])
+    .map((spec) => `${spec.name}：${spec.value}`)
+    .join(' / ')
 }
 
 function handleQuantity(row: CartItem, value: number | undefined) {
@@ -223,6 +230,11 @@ async function handleRemove(row: CartItem) {
 .row-cat {
   font-size: 12px;
   color: var(--tea-muted);
+}
+
+.row-spec {
+  font-size: 12px;
+  color: var(--tea-gold-deep);
 }
 
 .row-price {

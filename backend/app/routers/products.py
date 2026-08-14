@@ -9,9 +9,11 @@ from app.models.user import User
 from app.schemas.common import MAX_PAGE_SIZE
 from app.schemas.product import (
     ProductCreate,
+    ProductImageRemove,
     ProductListResponse,
     ProductResponse,
     ProductUpdate,
+    SkuPayload,
 )
 from app.services import product as product_service
 
@@ -71,6 +73,17 @@ def update_product(
     return product_service.update_product(db, product_id, data)
 
 
+@router.put("/{product_id}/skus", response_model=ProductResponse)
+def replace_skus(
+    product_id: int,
+    skus: list[SkuPayload],
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin),
+):
+    """批量替换商品 SKU（含规格定义）；仅管理员可操作。"""
+    return product_service.replace_skus(db, product_id, skus)
+
+
 @router.delete("/{product_id}", status_code=204)
 def delete_product(
     product_id: int,
@@ -89,3 +102,25 @@ def upload_product_image(
 ):
     """上传商品图片，保存到 backend/uploads/ 并返回 /uploads/ 开头的相对路径。"""
     return product_service.upload_product_image(db, product_id, file)
+
+
+@router.post("/{product_id}/images", response_model=ProductResponse)
+def upload_product_images(
+    product_id: int,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin),
+):
+    """上传商品多张详情图（追加 kind=detail 行）；仅管理员可操作。"""
+    return product_service.upload_product_images(db, product_id, files)
+
+
+@router.delete("/{product_id}/images", response_model=ProductResponse)
+def remove_product_image(
+    product_id: int,
+    data: ProductImageRemove,
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin),
+):
+    """移除一张详情图；仅管理员可操作。"""
+    return product_service.remove_product_image(db, product_id, data.url)
