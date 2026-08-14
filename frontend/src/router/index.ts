@@ -59,6 +59,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('@/views/ProfileView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
@@ -77,6 +83,11 @@ const routes: RouteRecordRaw[] = [
         path: 'orders',
         name: 'admin-orders',
         component: () => import('@/views/admin/OrderManageView.vue'),
+      },
+      {
+        path: 'users',
+        name: 'admin-users',
+        component: () => import('@/views/admin/UserManageView.vue'),
       },
     ],
   },
@@ -99,7 +110,7 @@ router.beforeEach(async (to) => {
     try {
       await authStore.fetchMe()
     } catch {
-      authStore.logout()
+      authStore.forceLogout()
     }
   }
 

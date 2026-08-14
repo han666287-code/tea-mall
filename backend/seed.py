@@ -78,6 +78,7 @@ def create_admin() -> None:
                 password_hash=hash_password(password),
                 nickname="管理员",
                 role="admin",
+                is_root=True,
             )
         )
         db.commit()

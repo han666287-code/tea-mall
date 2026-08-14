@@ -41,6 +41,7 @@
           <router-link to="/admin/categories" class="nav-link">分类管理</router-link>
           <router-link to="/admin/products" class="nav-link">商品管理</router-link>
           <router-link to="/admin/orders" class="nav-link">订单管理</router-link>
+          <router-link to="/admin/users" class="nav-link">用户管理</router-link>
         </template>
 
         <template v-if="!authStore.user">
@@ -56,6 +57,7 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
+              <el-dropdown-item @click="router.push('/profile')">个人中心</el-dropdown-item>
               <el-dropdown-item
                 v-if="authStore.user?.role !== 'admin'"
                 @click="router.push('/orders')"
@@ -100,8 +102,8 @@ function handleSearch() {
   router.push(kw ? { path: '/products', query: { keyword: kw } } : '/products')
 }
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   cartStore.clear()
   router.push('/login')
 }

@@ -72,6 +72,7 @@ def create_test_admin() -> None:
                     password_hash=hash_password(TEST_ADMIN_PASSWORD),
                     nickname="测试管理员",
                     role="admin",
+                    is_root=True,
                 )
             )
             db.commit()
@@ -102,8 +103,9 @@ def prepare_database():
 
 @pytest.fixture(autouse=True)
 def clear_cache():
-    """每个测试前清空测试 Redis 缓存，保证用例之间互不影响。"""
+    """每个测试前清空测试 Redis 缓存与会话键，保证用例之间互不影响。"""
     cache.clear_all()
+    cache.invalidate("auth:*")
     yield
 
 

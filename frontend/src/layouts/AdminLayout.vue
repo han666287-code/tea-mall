@@ -74,6 +74,7 @@ import {
   Goods,
   Shop,
   Tickets,
+  User,
 } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -92,12 +93,14 @@ const menuItems = [
   { path: '/admin/products', label: '商品管理', icon: Goods },
   { path: '/admin/categories', label: '分类管理', icon: Collection },
   { path: '/admin/orders', label: '订单管理', icon: Tickets },
+  { path: '/admin/users', label: '用户管理', icon: User },
 ]
 
 const titleMap: Record<string, string> = {
   '/admin/products': '商品管理',
   '/admin/categories': '分类管理',
   '/admin/orders': '订单管理',
+  '/admin/users': '用户管理',
 }
 
 const currentTitle = computed(() => titleMap[route.path] ?? '管理后台')
@@ -107,8 +110,8 @@ const initial = computed(() => {
   return name ? name.charAt(0).toUpperCase() : '管'
 })
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   cartStore.clear()
   router.push('/login')
 }

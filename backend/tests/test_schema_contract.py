@@ -6,7 +6,16 @@ from tests.conftest import client
 
 # 与 frontend/src/types/*.ts 逐一对应的响应字段集合
 EXPECTED_KEYS = {
-    "UserResponse": {"id", "username", "nickname", "role", "created_at"},
+    "UserResponse": {
+        "id",
+        "username",
+        "email",
+        "nickname",
+        "role",
+        "status",
+        "is_root",
+        "created_at",
+    },
     "CategoryResponse": {"id", "name", "sort_order", "created_at"},
     "ProductResponse": {
         "id",

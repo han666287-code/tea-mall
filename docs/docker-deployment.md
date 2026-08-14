@@ -73,7 +73,8 @@ Docker Compose 通过健康检查保证依赖顺序：
 - `DATABASE_URL`：后端连接串，host 必须是服务名 `mysql`；修改密码时需与 `MYSQL_PASSWORD` 同步。
 - `REDIS_URL`：host 为服务名 `redis`。
 - `JWT_SECRET`：必填；缺失、少于 32 字节或命中已知弱值时后端拒绝启动。生成命令：`python -c "import secrets; print(secrets.token_urlsafe(48))"`。
-- `JWT_EXPIRE_DAYS`：token 有效期（天）。
+- `ACCESS_TOKEN_EXPIRE_MINUTES`：Access Token 有效期（分钟，默认 15）。
+- `REFRESH_TOKEN_EXPIRE_DAYS`：Refresh Token 有效期（天，默认 7）。
 
 ## 常见问题
 

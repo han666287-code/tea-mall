@@ -120,5 +120,5 @@ def test_invalid_jwt_401_with_code():
     )
     assert response.status_code == 401
     body = response.json()
-    assert body["code"] == "http_401"
+    assert body["code"] == "TOKEN_INVALID"
     assert "token" in body["detail"]

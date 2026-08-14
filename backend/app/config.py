@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     # 必填：缺失或不符合要求时拒绝启动
     jwt_secret: str
-    jwt_expire_days: int = 7
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
     # 测试环境标识：pytest 通过 conftest 强制开启
     testing: bool = False
 
