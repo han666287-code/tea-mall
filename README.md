@@ -2,13 +2,24 @@
 
 茶叶电商平台：Vue3 + TypeScript + FastAPI + MySQL + Redis，前后端分离、单体仓库，支持 Docker Compose 一键部署。
 
-## 功能（v1）
+## 功能
+
+### V1.0（Phase 0-6 历史基线）
 
 - 用户注册 / 登录（JWT 认证，bcrypt 密码哈希）
 - 商品分类、商品列表、商品详情、关键词搜索、分类筛选、分页
 - 购物车：加购、数量累加、修改数量、删除、合计金额
 - 订单：从购物车下单（扣库存、清购物车）、模拟支付、取消订单、我的订单
 - 管理端：分类管理、商品管理（图片上传、上下架）、订单管理（状态流转）
+
+### V2.0 工程化升级（V2.0-1 ~ V2.0-9）
+
+- 安全：`JWT_SECRET` 必填且弱值拒绝启动、管理员强密码校验、登录限流
+- 身份与权限：Access + Refresh Token（轮换、登出撤销、改密全部失效）、用户状态管理（禁用即失效）、RBAC 管理端用户管理
+- 商品：商品 → SKU → 规格体系（独立价格/库存）、商品多图
+- 工程化：Alembic 数据库迁移、统一错误格式 `{detail, code}`、Router/Service/Repository 分层
+- 缓存：Redis 商品/分类缓存（TTL 可配置）、故障降级（商品回退 MySQL、认证 fail-closed）
+- 交付：Docker Compose 一键部署（四服务）、全新环境冷启动、312 项自动化测试
 
 ## 技术栈
 
@@ -35,10 +46,20 @@ cd tea-mall
 cp .env.example .env        # Windows: Copy-Item .env.example .env
 # 生成随机 JWT_SECRET 并填入 .env（必填，缺失或弱值后端拒绝启动）
 python -c "import secrets; print(secrets.token_urlsafe(48))"
-docker compose up -d
+docker compose up -d --build
 ```
 
-首次启动会自动构建前后端镜像、初始化 MySQL（建库建用户）、拉起 Redis；后端容器启动前会自动执行数据库迁移（`alembic upgrade head`）建立全部数据表。
+首次启动会自动构建前后端镜像（`--build` 强制使用当前代码重新构建）、初始化 MySQL（建库建用户）、拉起 Redis；后端容器启动前会自动执行数据库迁移（`alembic upgrade head`）建立全部数据表。
+
+检查服务状态：
+
+```bash
+docker compose ps
+```
+
+`docker compose ps` 中 backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即表示平台就绪（frontend 未配置 healthcheck，正常只显示 `Up`），此时可访问前端页面；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常。
+
+日常再次启动可省略 `--build`（`docker compose up -d`，复用已有镜像）；修改代码后重新构建并让新代码生效，使用 `docker compose up -d --build`。
 
 ## 安全配置（JWT Secret）
 
@@ -136,21 +157,25 @@ tea-mall
 │   ├── Dockerfile    # 多阶段构建：Node 构建 + nginx 运行
 │   ├── nginx.conf    # SPA 托管 + /api、/uploads 反向代理
 │   └── src
-│       ├── api       # Axios 封装与接口
-│       ├── components# 通用组件
-│       ├── router    # 路由 + 登录/管理员守卫
-│       ├── store     # Pinia（auth / cart）
-│       ├── types     # TypeScript 类型
-│       └── views     # 页面（含 admin/ 管理端）
+│       ├── api         # Axios 封装与接口
+│       ├── components  # 通用组件
+│       ├── layouts     # 页面布局（含 Admin 管理端布局）
+│       ├── router      # 路由 + 登录/管理员守卫
+│       ├── store       # Pinia（auth / cart）
+│       ├── styles      # 全局样式
+│       ├── types       # TypeScript 类型
+│       └── views       # 页面（含 admin/ 管理端）
 ├── backend           # 后端（FastAPI）
 │   ├── Dockerfile    # Python 3.13 运行镜像
 │   └── app
-│       ├── core      # 密码哈希、JWT、权限依赖
-│       ├── models    # ORM 模型
-│       ├── schemas   # 请求/响应模型
-│       ├── routers   # 路由
-│       ├── services  # 业务逻辑
-│       └── main.py   # 应用入口
+│       ├── core          # 密码哈希、JWT、权限依赖
+│       ├── database      # 数据库连接与会话
+│       ├── models        # ORM 模型
+│       ├── repositories  # 数据访问层（商品/订单/SKU）
+│       ├── schemas       # 请求/响应模型
+│       ├── routers       # 路由
+│       ├── services      # 业务逻辑
+│       └── main.py       # 应用入口
 ├── database          # 容器初始化 SQL（挂载到 MySQL 首次启动）
 ├── sql               # 本地建库脚本
 ├── docs/development  # 阶段任务表与依赖关系
@@ -170,7 +195,7 @@ tea-mall
 mysql -u root -p < sql/init.sql
 ```
 
-该脚本会创建 `tea_mall` 数据库和本地开发账号（用户名与密码需与 `backend/.env` 中 `DATABASE_URL` 保持一致）。
+该脚本会创建 `tea_mall` 与 `tea_mall_test` 数据库，以及本地开发账号 `tea_mall`（默认密码 `tea_mall_dev`，与 `backend/.env.example` 中 `DATABASE_URL` 一致；如需改密码，需同步修改 `sql/init.sql` 与 `backend/.env`）。
 
 ### 2. 启动 Redis
 
@@ -248,8 +273,8 @@ docker compose exec mysql mysql -uroot -p'<MYSQL_ROOT_PASSWORD>' -e "CREATE DATA
 cd backend
 pytest
 
-# 使用 Docker 容器 MySQL / Redis 时
-$env:DATABASE_URL='mysql+pymysql://tea_mall:tea_mall_dev@127.0.0.1:3307/tea_mall_test?charset=utf8mb4'
+# 使用 Docker 容器 MySQL / Redis 时（<MYSQL_PASSWORD> 替换为根目录 .env 中 MYSQL_PASSWORD 的值）
+$env:DATABASE_URL='mysql+pymysql://tea_mall:<MYSQL_PASSWORD>@127.0.0.1:3307/tea_mall_test?charset=utf8mb4'
 $env:REDIS_URL='redis://127.0.0.1:6379/15'
 pytest
 ```

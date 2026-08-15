@@ -3,8 +3,10 @@
 本文档说明 TeaMall 的 Docker 部署架构、容器关系、启动流程与常见问题。一键部署命令：
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+`--build` 会使用当前代码重新构建前后端镜像；日常重启可省略（`docker compose up -d`，复用已有镜像）。
 
 ## 项目架构
 
@@ -47,13 +49,14 @@ Docker Compose 通过健康检查保证依赖顺序：
 
 1. 安装 Docker Desktop 后，克隆仓库并进入项目目录。
 2. 复制环境变量文件：`cp .env.example .env`（Windows 用 `Copy-Item`），生成随机 `JWT_SECRET` 并填写（必填，缺失或弱值后端拒绝启动），按需修改密码与端口。
-3. 执行 `docker compose up -d`：
+3. 执行 `docker compose up -d --build`：
    - 自动创建网络 `tea-mall-net` 与数据卷；
    - 构建前后端镜像（首次较慢）；
    - MySQL 首次启动时由 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 环境变量创建库与用户，并执行挂载的 `database/init.sql`（幂等，双保险）；
    - 后端容器入口先执行 `alembic upgrade head` 自动创建/更新数据表，再启动 FastAPI 应用；
    - 全部就绪后，前端与后端 API 对外可访问。
-4. 可选：初始化管理员与示例数据（管理员密码从 `ADMIN_PASSWORD` 环境变量读取，至少 12 位且禁止弱密码；首次创建幂等，重置密码见 README「初始化种子数据」）：
+4. 检查服务状态：`docker compose ps`，backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即就绪（frontend 未配置 healthcheck，正常只显示 `Up`）；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常。
+5. 可选：初始化管理员与示例数据（管理员密码从 `ADMIN_PASSWORD` 环境变量读取，至少 12 位且禁止弱密码；首次创建幂等，重置密码见 README「初始化种子数据」）：
    `docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<强密码>' backend python seed.py`
 
 ## 数据持久化
