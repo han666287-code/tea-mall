@@ -34,13 +34,13 @@ flowchart LR
 Docker Compose 通过健康检查保证依赖顺序：
 
 1. `mysql` 健康：`mysqladmin ping` 通过 TCP（127.0.0.1:3306）验证服务可用；`redis` 健康：`redis-cli ping` 返回 PONG。
-2. `backend` 等待 mysql、redis 均 `healthy` 后才启动；自身健康检查请求 `/api/health`（同时验证数据库与 Redis 连接）。
+2. `backend` 等待 mysql `healthy` 后才启动；Redis 只等待容器启动（不等待健康），避免 Redis 故障阻塞整个平台。后端自身健康检查请求 `/api/health`（同时验证数据库与 Redis 连接）。
    - 注意：后端应用本身不依赖 Redis 可用——数据库迁移与 FastAPI 启动不触碰 Redis；Redis 故障时商品查询自动回退 MySQL，`/api/health` 返回 HTTP 200（`redis` 字段为 `false`），容器健康检查不会因 Redis 故障重启后端。
 3. `frontend` 等待 backend `healthy` 后启动，nginx 对外提供服务。
 
 `depends_on` 配置：
 
-- backend → mysql（service_healthy）、redis（service_healthy）
+- backend → mysql（service_healthy）、redis（service_started，仅等待启动不等待健康）
 - frontend → backend（service_healthy）
 
 ## 启动流程

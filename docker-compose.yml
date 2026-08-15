@@ -31,10 +31,12 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
+      # MySQL 未就绪时后端不启动（数据库迁移与业务强依赖 MySQL）
       mysql:
         condition: service_healthy
+      # Redis 不阻塞后端启动：商品/分类缓存故障自动回退 MySQL；认证链路在请求时 fail-closed
       redis:
-        condition: service_healthy
+        condition: service_started
     volumes:
       - uploads:/app/uploads
     healthcheck:

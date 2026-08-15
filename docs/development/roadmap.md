@@ -1,6 +1,8 @@
 # 阶段任务表（Roadmap）
 
 > 本文件是项目开发的唯一阶段依据：必须严格按照 Phase 顺序开发，每个 Phase 完成后等待用户确认，才允许进入下一 Phase。
+>
+> 说明：下文 `Phase 0–6` 为 V1 阶段表（历史基线，V1 功能开发）；`V2.0-1 ~ V2.0-8` 为 V2.0 工程化升级阶段（见文末「V2.0 阶段表」）。两套编号相互独立，V2.0 各阶段叠加在 V1 功能之上，开发顺序仍按各自编号执行。
 
 ---
 
@@ -216,3 +218,120 @@
 - 后端 pytest 全部通过
 - 按 README 从零启动项目不超过 5 步
 - 交付一份可复现的学习项目说明
+
+## V2.0 阶段表（V2.0-1 ~ V2.0-8）
+
+> V2.0 各阶段叠加在 V1 功能（Phase 0–6）之上，编号与 V1 阶段表相互独立；每个 V2.0 阶段的验收报告见 `docs/v2.0-phaseN-report.md`。
+
+### V2.0-1 安全与启动基础（完成）
+
+**目标：** 将 V1 项目升级为安全、稳定、可重复启动、测试隔离的 V2.0 基础状态。
+
+**任务：**
+- `JWT_SECRET` 必填且无默认值：缺失、<32 字节、命中已知弱值时拒绝启动
+- Docker 冷启动成功、健康检查准确、MySQL 未就绪不随机失败、正常错误不产生 500
+- pytest 使用独立测试库与 Redis，破坏性操作有环境保护；敏感配置不进 Git
+
+**完成标准：** 冷启动/健康检查/安全配置回归通过；`docs/v2.0-phase1-report.md` 结论 PASS
+
+### V2.0-2 数据库工程化（完成）
+
+**目标：** 数据库与后端工程化：版本管理、事务/Session、异常处理、API 规范、分层与查询质量。
+
+**任务：**
+- Alembic 迁移体系（空库可完整建表），移除启动 `create_all`，Docker 入口先 `alembic upgrade head` 再启动
+- Session/Transaction 管理、统一异常处理与 API Response 规范、Request/Response Schema
+- Router/Service/Repository 分层、数据库约束与索引、N+1/查询质量/分页
+
+**完成标准：** 迁移可重复执行、回归测试通过；`docs/v2.0-phase2-report.md` 结论 PASS
+
+### V2.0-3 用户身份与权限体系（完成）
+
+**目标：** 从"能注册登录"升级为企业级用户身份与权限体系。
+
+**任务：**
+- 注册唯一性与邮箱规范（`USERNAME_TAKEN` / `EMAIL_TAKEN`）
+- Access + Refresh Token 生命周期：Redis 存 SHA-256 指纹、轮换即删、登出撤销、epoch 失效
+- 账户安全（改密使全部旧 Token 失效）、RBAC、用户状态生命周期与认证强制、前后端联调
+
+**完成标准：** Token 生命周期/RBAC/账户安全回归通过；`docs/v2.0-phase3-report.md` 结论 PASS
+
+### V2.0-4 商品/SKU 体系（完成）
+
+**目标：** 商品升级为「商品 → SKU → 规格/规格值」结构，SKU 独立价格与库存。
+
+**任务：**
+- SKU/规格表与规格组合唯一约束，存量数据自动回填默认 SKU
+- 库存与上下架校验链、订单按 SKU 快照与取消恢复；购物车按 SKU
+- 商品多图；前端规格选择器与管理端 SKU 编辑器
+
+**完成标准：** SKU 校验/库存/订单快照/多图测试通过；`docs/v2.0-phase4-report.md` 结论 PASS
+
+### V2.0-5 认证整合与 RBAC（完成）
+
+**目标：** 收敛认证面，统一权限控制。
+
+**任务：**
+- JWT 编解码与认证依赖单点化（`core/security.py`、`core/deps.py`）
+- 集中式可选管理员依赖 `get_optional_current_admin`，公开读/管理写权限边界清晰
+- 用户状态联动（禁用即失效）、管理端用户管理（状态/角色）、权限矩阵测试
+
+**完成标准：** 权限矩阵回归通过；`docs/v2.0-phase5-report.md` 结论 PASS
+
+### V2.0-6 Redis 缓存与降级（完成）
+
+**目标：** 缓存工程化与故障降级。
+
+**任务：**
+- 统一 Redis 客户端（短超时快速失败）；`PRODUCT_CACHE_TTL_SECONDS` 可配置 TTL
+- 商品/分类缓存命中/过期重建/写后失效；故障降级：商品 fail-open 回退 MySQL、认证 fail-closed 503、限流 fail-open
+
+**完成标准：** 缓存命中/失效/降级测试通过；`docs/v2.0-phase6-report.md` 结论 PASS
+
+### V2.0-7 测试与核心业务验证（完成）
+
+**目标：** 对前六阶段功能做系统性测试与核心业务验证，补齐认证安全与商品 Redis 缓存/降级测试缺口，形成可重复的回归基线。
+
+**任务：**
+- 审计既有测试体系（pytest + Alembic 迁移建表 + 测试库/测试 Redis 隔离 + 破坏性操作环境保护）
+- 认证与权限：401/403/`ACCOUNT_DISABLED`/Refresh 轮换/Logout 撤销/提权防护
+- 商品与 Redis：缓存命中/失效/降级语义锁定；基础并发；前后端真实 HTTP 联调与 `npm run build`
+
+**完成标准：** pytest 全量 312 passed、`npm run build` 通过、生产代码零修改；`docs/v2.0-phase7-report.md` 结论 PASS
+
+### V2.0-8 冷启动与 Docker 环境标准化（完成）
+
+**目标：** 解决全新协作者 Clone 后无法启动、环境不一致、Redis/MySQL 启动顺序等问题；一个没有本项目开发环境的人仅凭 README 与 `.env.example` 即可完成 Clone → 配置 → 启动依赖 → 启动前后端 → 访问商城并做基础功能验证。不开发新的业务功能。
+
+**任务：**
+
+冷启动分析（8.1）：
+- 只读检查 README、`.env`/`.env.example`、`.gitignore`、compose、Dockerfile、前后端启动方式、数据库初始化与 Redis/MySQL 配置
+- 输出失败点分类：阻塞启动 / 影响功能 / 文档不完整，并给出修改文件清单
+
+环境变量与配置标准化（8.2）：
+- `.env.example` 完整且可复制即用（JWT_SECRET 必填由开发者生成）；新增 ADMIN_* 说明；逐项注明作用/必填/默认/示例
+- `.gitignore` 复核；敏感信息不入 Git；不硬编码数据库/Redis/JWT 秘密；不新增无必要的拆分变量
+- README 增加环境变量总表（Docker 用服务名 `mysql`/`redis`，本地用 `localhost`）
+
+Docker Compose 环境标准化（8.3）：
+- 四服务（frontend/backend/mysql/redis）由 Compose 编排，MySQL 持久化 + 初始化 + healthcheck；backend 等待 MySQL healthy，Redis 仅等待启动不阻塞后端
+- Redis 故障时商品查询回退 MySQL、认证 fail-closed；保留 redis healthcheck 供观察
+- 同步更新 `docs/docker-deployment.md` 启动顺序说明
+
+全新环境冷启动验证（8.4）：
+- 全新目录 git clone → 按 README 创建 `.env` → `docker compose up -d --build` → 全部服务健康
+- 基础功能：前端打开、健康检查、注册/登录/Refresh、商品列表/详情/搜索、Admin 登录与商品管理、普通用户越权 403
+- Redis 停止/恢复降级回归；完成后清理冷启动环境，开发环境不受影响
+
+最终验收（8.5）：
+- 环境/服务/冷启动/前后端/文档验收；pytest 全量、`npm run build`、README 十项核对
+- 更新本文件与 `docs/development/dependency-tree.md`；创建 `docs/v2.0-phase8-report.md`
+
+**完成标准：**
+- 冷启动全流程一次通过，12 项基础功能 + 降级验证通过
+- 四服务 healthy；Alembic 迁移 0001–0008 全部应用；MySQL/Redis 容器内连通正常
+- pytest 全量通过、`npm run build` 通过
+- README 覆盖：项目介绍、环境要求、环境变量、本地启动、Docker 启动、数据库初始化、管理员账号、前后端访问地址、常见启动问题
+- 无业务逻辑改动、无硬编码 Secret、无本机路径、无调试代码
+- 输出 `docs/v2.0-phase8-report.md`，结论 PASS；完成后停止，不自动进入下一阶段

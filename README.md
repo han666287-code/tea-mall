@@ -52,6 +52,29 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 将输出粘贴到 `.env` 的 `JWT_SECRET=` 后即可。
 
+## 环境变量说明
+
+完整变量清单见根目录 `.env.example`（Docker 部署）与 `backend/.env.example`（本地开发）。Docker 部署使用根目录 `.env`，由 `docker-compose.yml` 注入后端；本地开发时后端读取 `backend/.env`。连接串 host 的差异：Docker 内使用 compose 服务名 `mysql` / `redis`，本地开发使用 `localhost` / `127.0.0.1`。
+
+| 变量 | 作用 | 必填 | 默认值 / 示例值 |
+| --- | --- | --- | --- |
+| `MYSQL_ROOT_PASSWORD` | MySQL root 口令（仅首次初始化建库时生效） | Docker 部署必填 | 示例 `CHANGE_ME_ROOT_PASSWORD`，复制后替换 |
+| `MYSQL_PASSWORD` | MySQL 应用账号 `tea_mall` 口令，必须与 `DATABASE_URL` 内密码一致 | Docker 部署必填 | 示例 `CHANGE_ME_DB_PASSWORD`，复制后替换 |
+| `MYSQL_PORT` | MySQL 宿主机映射端口 | 否 | `3307`（避免与本机 3306 冲突） |
+| `REDIS_PORT` | Redis 宿主机映射端口 | 否 | `6379` |
+| `PRODUCT_CACHE_TTL_SECONDS` | 商品/分类缓存有效期（秒） | 否 | `300`（缺失或 <=0 回退默认） |
+| `FRONTEND_PORT` / `BACKEND_PORT` | 前端 / 后端宿主机映射端口 | 否 | `8080` / `8000` |
+| `DATABASE_URL` | 后端 SQLAlchemy 连接串（Docker 内 host 为 `mysql`，本地为 `localhost`/`127.0.0.1`） | 是 | 示例见 `.env.example` |
+| `REDIS_URL` | Redis 连接串（Docker 内 host 为 `redis`，本地为 `localhost`；可携带密码，仅允许来自环境变量） | 是 | `redis://redis:6379/0` |
+| `JWT_SECRET` | JWT 签名密钥；缺失、少于 32 字节或命中弱值时后端拒绝启动 | 是 | 无默认值，复制后生成随机串填入 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access Token 有效期（分钟） | 否 | `15` |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh Token 有效期（天） | 否 | `7` |
+| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | 登录限流统计窗口（秒） | 否 | `300` |
+| `LOGIN_RATE_LIMIT_MAX_PER_IP` | 单 IP 登录失败上限（0/负数关闭） | 否 | `30` |
+| `LOGIN_RATE_LIMIT_MAX_PER_USER` | 单用户名登录失败上限（0/负数关闭） | 否 | `10` |
+| `ADMIN_USERNAME` | `seed.py` 初始化管理员用户名（运行 seed 时使用） | 否 | `admin` |
+| `ADMIN_PASSWORD` | `seed.py` 创建/重置管理员密码（至少 12 位，禁止弱密码） | 运行 seed 时必填 | 无默认值 |
+
 ### 访问地址
 
 | 服务 | 地址 |
@@ -237,6 +260,15 @@ pytest
 cd frontend
 npm run build
 ```
+
+## 常见启动问题
+
+1. **JWT_SECRET 缺失或为弱值，后端反复重启**：`JWT_SECRET` 是必填配置，缺失、少于 32 字节或命中弱值（`dev-only-*`、`change-me-*`）时后端拒绝启动并在日志中报错。用 `python -c "import secrets; print(secrets.token_urlsafe(48))"` 生成后填入 `.env`。
+2. **数据库连接失败**：多为密码不一致——`.env` 中 `DATABASE_URL` 内的密码必须与 `MYSQL_PASSWORD` 相同；修改密码后需重建数据卷（`docker compose down -v && docker compose up -d`，会清空数据，谨慎使用）才生效。
+3. **端口冲突（本机已有 MySQL 3306 等）**：MySQL 默认映射宿主 3307；仍冲突时修改 `.env` 中的 `MYSQL_PORT` / `REDIS_PORT` / `FRONTEND_PORT` / `BACKEND_PORT` 后重新 `docker compose up -d`。
+4. **容器反复 restarting**：`docker compose logs <service>` 查看具体报错；常见原因：环境变量缺失、端口占用、MySQL 初始化失败、镜像构建/拉取失败。
+5. **前端页面打开但接口 502**：backend 尚未就绪或已退出，先 `docker compose ps` 查看状态，再 `docker compose logs -f backend` 查看错误。
+6. **镜像拉取或构建失败（网络原因）**：在 Docker Desktop → Settings → Docker Engine 配置 `registry-mirrors` 镜像加速，或配置代理后重试。
 
 ## 开发文档
 
