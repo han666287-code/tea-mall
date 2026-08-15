@@ -25,7 +25,7 @@ flowchart LR
 | frontend | 自构建（node:20 → nginx:1.27） | 托管 Vue3 构建产物；`/api`、`/uploads` 反代到 backend | 8080 |
 | backend | 自构建（python:3.13-slim） | FastAPI 应用；启动前自动执行 Alembic 迁移建表；商品图片存储 | 8000 |
 | mysql | mysql:8.0 | 数据库；环境变量 + init.sql 首次初始化 | 3307 |
-| redis | redis:8-alpine | 分类/商品缓存（TTL 5 分钟） | 6379 |
+| redis | redis:8-alpine | 分类/商品缓存（TTL 默认 300 秒，可配置） | 6379 |
 
 端口均可在 `.env` 中通过 `FRONTEND_PORT` / `BACKEND_PORT` / `MYSQL_PORT` / `REDIS_PORT` 覆盖。
 
@@ -35,6 +35,7 @@ Docker Compose 通过健康检查保证依赖顺序：
 
 1. `mysql` 健康：`mysqladmin ping` 通过 TCP（127.0.0.1:3306）验证服务可用；`redis` 健康：`redis-cli ping` 返回 PONG。
 2. `backend` 等待 mysql、redis 均 `healthy` 后才启动；自身健康检查请求 `/api/health`（同时验证数据库与 Redis 连接）。
+   - 注意：后端应用本身不依赖 Redis 可用——数据库迁移与 FastAPI 启动不触碰 Redis；Redis 故障时商品查询自动回退 MySQL，`/api/health` 返回 HTTP 200（`redis` 字段为 `false`），容器健康检查不会因 Redis 故障重启后端。
 3. `frontend` 等待 backend `healthy` 后启动，nginx 对外提供服务。
 
 `depends_on` 配置：
@@ -72,6 +73,7 @@ Docker Compose 通过健康检查保证依赖顺序：
 - `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD`：MySQL root 与应用账号密码（仅首次初始化生效）。
 - `DATABASE_URL`：后端连接串，host 必须是服务名 `mysql`；修改密码时需与 `MYSQL_PASSWORD` 同步。
 - `REDIS_URL`：host 为服务名 `redis`。
+- `PRODUCT_CACHE_TTL_SECONDS`：商品/分类缓存 TTL（秒，默认 300；缺失或 <=0 时回退默认值）。
 - `JWT_SECRET`：必填；缺失、少于 32 字节或命中已知弱值时后端拒绝启动。生成命令：`python -c "import secrets; print(secrets.token_urlsafe(48))"`。
 - `ACCESS_TOKEN_EXPIRE_MINUTES`：Access Token 有效期（分钟，默认 15）。
 - `REFRESH_TOKEN_EXPIRE_DAYS`：Refresh Token 有效期（天，默认 7）。

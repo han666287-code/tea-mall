@@ -9,15 +9,15 @@ import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
-from redis import Redis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 
-from app.config import UPLOAD_DIR, settings
+from app.config import UPLOAD_DIR
 from app.core import exception_handlers
 from app.core.exceptions import BusinessException
 from app.database import engine
 from app.routers import admin, auth, cart, categories, orders, products
+from app.services import cache
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -58,8 +58,7 @@ def health():
         result["status"] = "error"
 
     try:
-        redis_client = Redis.from_url(settings.redis_url, socket_connect_timeout=2)
-        redis_client.ping()
+        cache.redis_client.ping()
         result["redis"] = True
     except Exception:
         result["status"] = "error"

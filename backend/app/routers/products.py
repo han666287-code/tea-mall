@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_admin, get_optional_current_user
+from app.core.deps import get_current_admin, get_optional_current_admin
 from app.database import get_db
 from app.models.user import User
 from app.schemas.common import MAX_PAGE_SIZE
@@ -28,10 +28,9 @@ def list_products(
     page_size: int = Query(12, ge=1, le=MAX_PAGE_SIZE),
     include_off_sale: bool = False,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_admin: User | None = Depends(get_optional_current_admin),
 ):
     """商品列表：公开只显示上架商品；管理员可用 include_off_sale=true 查看全部。"""
-    is_admin = current_user is not None and current_user.role == "admin"
     return product_service.list_products(
         db,
         category_id=category_id,
@@ -39,7 +38,7 @@ def list_products(
         page=page,
         page_size=page_size,
         include_off_sale=include_off_sale,
-        is_admin=is_admin,
+        is_admin=current_admin is not None,
     )
 
 
@@ -47,11 +46,12 @@ def list_products(
 def get_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User | None = Depends(get_optional_current_user),
+    current_admin: User | None = Depends(get_optional_current_admin),
 ):
     """商品详情：下架商品仅管理员可见。"""
-    is_admin = current_user is not None and current_user.role == "admin"
-    return product_service.get_product(db, product_id, is_admin=is_admin)
+    return product_service.get_product(
+        db, product_id, is_admin=current_admin is not None
+    )
 
 
 @router.post("", response_model=ProductResponse, status_code=201)

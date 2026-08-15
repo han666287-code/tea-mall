@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     jwt_secret: str
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    # 登录限流（固定窗口；IP 30 次、用户名 10 次 / 300 秒，0 或负数关闭对应维度）
+    login_rate_limit_window_seconds: int = 300
+    login_rate_limit_max_per_ip: int = 30
+    login_rate_limit_max_per_user: int = 10
+    # 商品/分类缓存 TTL（秒，默认 300；<=0 时回退默认值并记录告警）
+    product_cache_ttl_seconds: int = 300
     # 测试环境标识：pytest 通过 conftest 强制开启
     testing: bool = False
 

@@ -114,3 +114,12 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
             status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限"
         )
     return user
+
+
+def get_optional_current_admin(
+    user: User | None = Depends(get_optional_current_user),
+) -> User | None:
+    """可选的管理员用户：未登录/普通用户/禁用用户返回 None，管理员返回用户。"""
+    if user is None or user.role != "admin":
+        return None
+    return user

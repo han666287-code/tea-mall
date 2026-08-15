@@ -17,6 +17,7 @@ from app.schemas.user import (
     UserResponse,
 )
 from app.services import auth as auth_service
+from app.services import rate_limit
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -28,8 +29,9 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """登录，返回 JWT token 和用户信息。"""
+    rate_limit.check_login_rate_limit(data.username, request)
     user = auth_service.authenticate_user(db, data)
     return auth_service.build_token_response(user)
 

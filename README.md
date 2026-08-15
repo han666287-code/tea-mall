@@ -15,13 +15,13 @@
 - 前端：Vue3 / TypeScript / Vite / Vue Router / Pinia / Axios / Element Plus
 - 后端：Python / FastAPI / SQLAlchemy 2.x
 - 数据库：MySQL 8.0（Docker 容器，数据持久化）
-- 缓存：Redis 8（Docker 容器，缓存分类与商品，TTL 5 分钟）
+- 缓存：Redis 8（Docker 容器，缓存分类与商品，TTL 默认 300 秒，可通过 `PRODUCT_CACHE_TTL_SECONDS` 调整；Redis 故障时商品查询自动回退 MySQL）
 - 部署：Docker / Docker Compose（nginx 托管前端并反向代理后端）
 
 ## Docker 一键部署（推荐）
 
 只需安装 Docker Desktop，克隆仓库后即可运行完整平台（前端、后端、MySQL、Redis）。
-后端启动时会先等待 MySQL 就绪（有限重试，最多约 40 秒），MySQL 尚未完成初始化不会随机失败；配置错误会在日志中明确报出。
+后端启动时会先等待 MySQL 就绪（有限重试，最多约 40 秒），MySQL 尚未完成初始化不会随机失败；配置错误会在日志中明确报出。Redis 不是后端启动的硬依赖：应用启动、数据库迁移均不依赖 Redis 可用，Redis 故障时商品查询自动回退 MySQL（详见「缓存配置与降级」）。
 
 ### 前置要求
 
@@ -98,6 +98,13 @@ MySQL 数据、Redis 数据、后端上传的商品图片分别保存在命名�
 
 部署细节见 [docs/docker-deployment.md](docs/docker-deployment.md)。
 
+## 缓存配置与降级
+
+- `PRODUCT_CACHE_TTL_SECONDS`：商品/分类缓存有效期（秒），默认 `300`，缺失或 <=0 时回退默认值。已在 `backend/.env.example`、根目录 `.env.example` 与 `docker-compose.yml` 中同步。
+- `REDIS_URL`：Redis 连接串（本地开发默认 `redis://localhost:6379/0`）。连接串可携带密码（如 `redis://:password@host:6379/0`），密码只允许来自环境变量，禁止写入代码。
+- 降级行为：Redis 不可用时，商品列表/详情/分类查询自动回退 MySQL，接口正常返回；认证链路（登录、Refresh Token、登出）保持 fail-closed（503），不会因为商品缓存降级逻辑放行失效 Token。
+- 冷启动：全新环境下即使 Redis 未启动，后端也能正常启动（`alembic upgrade head` 建表、uvicorn 启动、商品 API 均可用），`/api/health` 中 `redis` 字段会如实反映 Redis 状态。
+
 ## 目录结构
 
 ```text
@@ -161,6 +168,8 @@ uvicorn app.main:app --reload
 ```
 
 接口文档：http://localhost:8000/docs
+
+说明：Redis 不需要先于后端启动；未启动 Redis 时后端仍可启动并正常提供商品查询（自动回退 MySQL），Redis 就绪后缓存自动生效。
 
 ### 4. 初始化种子数据（可选）
 
