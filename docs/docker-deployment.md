@@ -36,8 +36,8 @@ flowchart LR
 Docker Compose 通过健康检查保证依赖顺序：
 
 1. `mysql` 健康：`mysqladmin ping` 通过 TCP（127.0.0.1:3306）验证服务可用；`redis` 健康：`redis-cli ping` 返回 PONG。
-2. `backend` 等待 mysql `healthy` 后才启动；Redis 只等待容器启动（不等待健康），避免 Redis 故障阻塞整个平台。后端自身健康检查请求 `/api/health`（同时验证数据库与 Redis 连接）。
-   - 注意：后端应用本身不依赖 Redis 可用——数据库迁移与 FastAPI 启动不触碰 Redis；Redis 故障时商品查询自动回退 MySQL，`/api/health` 返回 HTTP 200（`redis` 字段为 `false`），容器健康检查不会因 Redis 故障重启后端。
+2. `backend` 等待 mysql `healthy` 后才启动；Redis 只等待容器启动（不等待健康），避免 Redis 故障阻塞整个平台。后端自身健康检查请求 `/api/health` 并解析响应体中的 `database` 字段：MySQL 是硬依赖，`database=false` 时容器标记为 `unhealthy`；Redis 是软依赖，`redis=false` 不影响健康判定。
+- 注意：后端应用本身不依赖 Redis 可用——数据库迁移与 FastAPI 启动不触碰 Redis；Redis 故障时商品查询自动回退 MySQL，`/api/health` 仍返回 HTTP 200（`redis` 字段为 `false`），容器健康检查不会因 Redis 故障将后端判为 unhealthy。MySQL 故障时 `/api/health` 返回 HTTP 200 但 `database=false`，healthcheck 判定失败，backend 显示 `Up (unhealthy)`。
 3. `frontend` 等待 backend `healthy` 后启动，nginx 对外提供服务。
 
 `depends_on` 配置：
@@ -55,7 +55,7 @@ Docker Compose 通过健康检查保证依赖顺序：
    - MySQL 首次启动时由 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 环境变量创建库与用户，并执行挂载的 `database/init.sql`（幂等，双保险）；
    - 后端容器入口先执行 `alembic upgrade head` 自动创建/更新数据表，再启动 FastAPI 应用；
    - 全部就绪后，前端与后端 API 对外可访问。
-4. 检查服务状态：`docker compose ps`，backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即就绪（frontend 未配置 healthcheck，正常只显示 `Up`）；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常。
+4. 检查服务状态：`docker compose ps`，backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即就绪（frontend 未配置 healthcheck，正常只显示 `Up`）；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常；若 MySQL 异常，backend 会显示 `Up (unhealthy)`。
 5. 可选：初始化管理员与示例数据（管理员密码从 `ADMIN_PASSWORD` 环境变量读取，至少 12 位且禁止弱密码；首次创建幂等，重置密码见 README「初始化种子数据」）：
    `docker compose exec -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD='<强密码>' backend python seed.py`
 

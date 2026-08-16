@@ -19,7 +19,7 @@
 - 商品：商品 → SKU → 规格体系（独立价格/库存）、商品多图
 - 工程化：Alembic 数据库迁移、统一错误格式 `{detail, code}`、Router/Service/Repository 分层
 - 缓存：Redis 商品/分类缓存（TTL 可配置）、故障降级（商品回退 MySQL、认证 fail-closed）
-- 交付：Docker Compose 一键部署（四服务）、全新环境冷启动、312 项自动化测试
+- 交付：Docker Compose 一键部署（四服务）、全新环境冷启动、316 项自动化测试
 
 ## 技术栈
 
@@ -57,7 +57,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-`docker compose ps` 中 backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即表示平台就绪（frontend 未配置 healthcheck，正常只显示 `Up`），此时可访问前端页面；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常。
+`docker compose ps` 中 backend / mysql / redis 显示 `Up (healthy)`、frontend 显示 `Up` 即表示平台就绪（frontend 未配置 healthcheck，正常只显示 `Up`），此时可访问前端页面；启动过程中 backend 会等待 MySQL 就绪，短暂显示 `Up (starting)` 属正常；若 MySQL 不可用，backend 会显示 `Up (unhealthy)`（Redis 异常不影响，商品查询自动降级回退 MySQL）。
 
 日常再次启动可省略 `--build`（`docker compose up -d`，复用已有镜像）；修改代码后重新构建并让新代码生效，使用 `docker compose up -d --build`。
 
@@ -111,7 +111,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 ```bash
 docker compose down          # 停止容器（保留数据）
-docker compose down -v       # 停止并删除数据卷（会清空数据库与 Redis 数据，谨慎使用）
+docker compose down -v       # 停止并删除数据卷（会清空数据库、Redis 数据与上传的商品图片，谨慎使用）
 ```
 
 ### 查看日志
@@ -296,6 +296,13 @@ npm run build
 4. **容器反复 restarting**：`docker compose logs <service>` 查看具体报错；常见原因：环境变量缺失、端口占用、MySQL 初始化失败、镜像构建/拉取失败。
 5. **前端页面打开但接口 502**：backend 尚未就绪或已退出，先 `docker compose ps` 查看状态，再 `docker compose logs -f backend` 查看错误。
 6. **镜像拉取或构建失败（网络原因）**：在 Docker Desktop → Settings → Docker Engine 配置 `registry-mirrors` 镜像加速，或配置代理后重试。
+
+   补充：前端镜像构建默认使用国内 npm 镜像源（npmmirror，见 `frontend/Dockerfile` 的 `NPM_REGISTRY` build-arg）；非国内/受限网络环境可指定官方源后重新构建：
+
+   ```bash
+   docker compose build --build-arg NPM_REGISTRY=https://registry.npmjs.org frontend
+   docker compose up -d
+   ```
 
 ## 开发文档
 
