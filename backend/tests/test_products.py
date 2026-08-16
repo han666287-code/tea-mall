@@ -57,20 +57,20 @@ def test_create_product_permissions(admin_headers, normal_user_headers):
     assert response.json()["category_name"] is not None
 
 
-def test_create_product_id_is_max_plus_one(admin_headers):
-    """新商品 ID = 现存最大商品 ID + 1（删除最大行后复用该 ID，不跳号）。"""
+def test_create_product_uses_autoincrement_id(admin_headers):
+    """新商品 ID 由数据库自增分配，删除最大行后不复用该 ID。"""
     category_id = make_category(admin_headers)
     first = make_product(admin_headers, category_id, unique_name()).json()
     second = make_product(admin_headers, category_id, unique_name()).json()
-    assert second["id"] == first["id"] + 1
+    assert second["id"] > first["id"]
 
-    # 删除最大 ID 的商品后，再创建应复用"最大 ID + 1"（即刚删除的 ID）
+    # 删除最大 ID 的商品后，再创建应分配新的更大 ID（不复用已删除 ID）
     assert (
         client.delete(f"/api/products/{second['id']}", headers=admin_headers).status_code
         == 204
     )
     third = make_product(admin_headers, category_id, unique_name()).json()
-    assert third["id"] == second["id"]
+    assert third["id"] > second["id"]
 
 
 def test_create_product_with_invalid_category(admin_headers):
@@ -230,6 +230,52 @@ def test_delete_product(admin_headers):
     response = client.delete(f"/api/products/{product_id}", headers=admin_headers)
     assert response.status_code == 204
     assert client.get(f"/api/products/{product_id}").status_code == 404
+
+
+def test_delete_product_with_cart_ref_rejected(admin_headers, normal_user_headers):
+    category_id = make_category(admin_headers)
+    product = make_product(admin_headers, category_id, unique_name()).json()
+    sku_id = product["skus"][0]["id"]
+    assert (
+        client.post(
+            "/api/cart/items",
+            json={"sku_id": sku_id, "quantity": 1},
+            headers=normal_user_headers,
+        ).status_code
+        == 201
+    )
+    response = client.delete(f"/api/products/{product['id']}", headers=admin_headers)
+    assert response.status_code == 400
+    assert response.json()["code"] == "PRODUCT_IN_USE"
+
+
+def test_delete_product_with_order_ref_rejected(admin_headers, normal_user_headers):
+    category_id = make_category(admin_headers)
+    product = make_product(admin_headers, category_id, unique_name()).json()
+    sku_id = product["skus"][0]["id"]
+    assert (
+        client.post(
+            "/api/cart/items",
+            json={"sku_id": sku_id, "quantity": 1},
+            headers=normal_user_headers,
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/api/orders",
+            json={
+                "receiver_name": "张三",
+                "receiver_phone": "13800138000",
+                "receiver_address": "上海市浦东新区",
+            },
+            headers=normal_user_headers,
+        ).status_code
+        == 201
+    )
+    response = client.delete(f"/api/products/{product['id']}", headers=admin_headers)
+    assert response.status_code == 400
+    assert response.json()["code"] == "PRODUCT_IN_USE"
 
 
 def test_upload_image_requires_admin(admin_headers, normal_user_headers):

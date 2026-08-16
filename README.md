@@ -179,6 +179,8 @@ tea-mall
 ├── database          # 容器初始化 SQL（挂载到 MySQL 首次启动）
 ├── sql               # 本地建库脚本
 ├── docs/development  # 阶段任务表与依赖关系
+├── docs/v2.0-reports # V2.0 升级阶段验收报告（phase1-8 + final）
+├── docs/v2.0-review  # V2.0 Final Review 审查过程报告与最终报告
 ├── docker-compose.yml# 四服务编排（frontend/backend/mysql/redis）
 ├── .env.example      # 环境变量示例（复制为 .env）
 ├── README.md

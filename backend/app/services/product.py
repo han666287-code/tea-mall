@@ -10,7 +10,9 @@ from sqlalchemy.orm import selectinload
 
 from app.config import UPLOAD_DIR
 from app.core.exceptions import BusinessException
+from app.models.cart_item import CartItem
 from app.models.category import Category
+from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.product_image import ProductImage
 from app.models.sku import ProductSpec, ProductSpecValue, Sku, SkuSpecValue
@@ -111,6 +113,22 @@ def _sync_skus(db: Session, product: Product, sku_payloads: list[SkuPayload]) ->
         for payload in sku_payloads
     ]
     _validate_sku_payloads(sku_payloads)
+
+    # 数据一致性：存在购物车引用时禁止整体替换 SKU，
+    # 否则旧 SKU 级联删除会静默清空用户购物车。
+    existing_sku_ids = [sku.id for sku in product.skus]
+    if existing_sku_ids:
+        cart_count = db.scalar(
+            select(func.count())
+            .select_from(CartItem)
+            .where(CartItem.sku_id.in_(existing_sku_ids))
+        )
+        if cart_count:
+            raise BusinessException(
+                "SKU_IN_USE_IN_CART",
+                "商品存在购物车引用，请先清空相关购物车后再修改规格",
+                status_code=400,
+            )
 
     for sku in list(product.skus):
         db.delete(sku)
@@ -249,10 +267,8 @@ def create_product(db: Session, data: ProductCreate) -> Product:
             "PRODUCT_CATEGORY_NOT_FOUND", "分类不存在", status_code=400
         )
     payload = data.model_dump(exclude={"skus"})
-    # ID 显式分配为"现存最大商品 ID + 1"，删除最大行后不会跳号；
-    # 极端并发下两个请求可能拿到同一个 ID，由数据库唯一约束兜底（409，可重试）
-    next_id = (db.scalar(select(func.max(Product.id))) or 0) + 1
-    product = Product(id=next_id, **payload)
+    # 商品 ID 由数据库自增分配，不显式指定（避免删除后复用 ID 造成历史关联误导）
+    product = Product(**payload)
     db.add(product)
     db.flush()
     if data.skus:
@@ -340,6 +356,20 @@ def delete_product(db: Session, product_id: int) -> None:
     product = db.get(Product, product_id)
     if product is None:
         raise BusinessException("PRODUCT_NOT_FOUND", "商品不存在", status_code=404)
+    cart_refs = db.scalar(
+        select(func.count())
+        .select_from(CartItem)
+        .where(CartItem.product_id == product_id)
+    )
+    order_refs = db.scalar(
+        select(func.count())
+        .select_from(OrderItem)
+        .where(OrderItem.product_id == product_id)
+    )
+    if cart_refs or order_refs:
+        raise BusinessException(
+            "PRODUCT_IN_USE", "商品存在购物车或订单引用，无法删除", status_code=400
+        )
     db.delete(product)
     db.commit()
     cache.invalidate_products()

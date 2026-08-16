@@ -7,7 +7,7 @@ export interface Sku {
   id: number
   product_id: number
   sku_code: string
-  price: number
+  price: string
   stock: number
   is_active: boolean
   specs: SkuSpecItem[]
@@ -34,7 +34,7 @@ export interface Product {
   name: string
   category_id: number
   category_name: string | null
-  price: number
+  price: string
   stock: number
   description: string
   image_url: string

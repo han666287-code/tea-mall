@@ -1,7 +1,7 @@
 """V2.0-5.4 登录限流测试。
 
 覆盖：正常登录不受影响、连续错误登录触发用户阈值 429、
-同一 IP 高频请求触发 IP 阈值、X-Forwarded-For 取首值、
+同一 IP 高频请求触发 IP 阈值、X-Forwarded-For 取末值 / X-Real-IP 优先、
 删除 Redis 键模拟窗口过期后恢复、rate 键存在 TTL、Redis 故障 fail-open。
 """
 
@@ -69,29 +69,49 @@ def test_ip_high_frequency_trigger(monkeypatch):
     assert blocked.json()["code"] == "RATE_LIMITED"
 
 
-def test_x_forwarded_for_first_value_used(monkeypatch):
+def test_x_forwarded_for_last_value_used(monkeypatch):
+    """X-Forwarded-For 取末值：客户端伪造首值不影响 IP 维度限流。"""
     monkeypatch.setattr(settings, "login_rate_limit_max_per_ip", 1)
 
     first = login(
         unique_username(),
         password="wrongpass",
-        headers={"X-Forwarded-For": "203.0.113.9"},
+        headers={"X-Forwarded-For": "203.0.113.9, 198.51.100.7"},
     )
     assert first.status_code == 400
 
     blocked = login(
         unique_username(),
         password="wrongpass",
-        headers={"X-Forwarded-For": "203.0.113.9"},
+        headers={"X-Forwarded-For": "203.0.113.9, 198.51.100.7"},
     )
     assert blocked.status_code == 429
 
     other_ip = login(
         unique_username(),
         password="wrongpass",
-        headers={"X-Forwarded-For": "198.51.100.7"},
+        headers={"X-Forwarded-For": "203.0.113.9, 198.51.100.8"},
     )
     assert other_ip.status_code == 400
+
+
+def test_x_real_ip_has_priority(monkeypatch):
+    """nginx 写入的 X-Real-IP 优先于 X-Forwarded-For。"""
+    monkeypatch.setattr(settings, "login_rate_limit_max_per_ip", 1)
+
+    first = login(
+        unique_username(),
+        password="wrongpass",
+        headers={"X-Real-IP": "203.0.113.66", "X-Forwarded-For": "198.51.100.1"},
+    )
+    assert first.status_code == 400
+
+    blocked = login(
+        unique_username(),
+        password="wrongpass",
+        headers={"X-Real-IP": "203.0.113.66", "X-Forwarded-For": "198.51.100.2"},
+    )
+    assert blocked.status_code == 429
 
 
 def test_rate_limit_recovers_after_window_expiry(monkeypatch):

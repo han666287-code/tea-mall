@@ -221,7 +221,7 @@
 
 ## V2.0 阶段表（V2.0-1 ~ V2.0-9）
 
-> V2.0 各阶段叠加在 V1 功能（Phase 0–6）之上，编号与 V1 阶段表相互独立；每个 V2.0 阶段的验收报告见 `docs/v2.0-phaseN-report.md`。
+> V2.0 各阶段叠加在 V1 功能（Phase 0–6）之上，编号与 V1 阶段表相互独立；每个 V2.0 阶段的验收报告见 `docs/v2.0-reports/v2.0-phaseN-report.md`。
 
 ### V2.0-1 安全与启动基础（完成）
 
@@ -232,7 +232,7 @@
 - Docker 冷启动成功、健康检查准确、MySQL 未就绪不随机失败、正常错误不产生 500
 - pytest 使用独立测试库与 Redis，破坏性操作有环境保护；敏感配置不进 Git
 
-**完成标准：** 冷启动/健康检查/安全配置回归通过；`docs/v2.0-phase1-report.md` 结论 PASS
+**完成标准：** 冷启动/健康检查/安全配置回归通过；`docs/v2.0-reports/v2.0-phase1-report.md` 结论 PASS
 
 ### V2.0-2 数据库工程化（完成）
 
@@ -243,7 +243,7 @@
 - Session/Transaction 管理、统一异常处理与 API Response 规范、Request/Response Schema
 - Router/Service/Repository 分层、数据库约束与索引、N+1/查询质量/分页
 
-**完成标准：** 迁移可重复执行、回归测试通过；`docs/v2.0-phase2-report.md` 结论 PASS
+**完成标准：** 迁移可重复执行、回归测试通过；`docs/v2.0-reports/v2.0-phase2-report.md` 结论 PASS
 
 ### V2.0-3 用户身份与权限体系（完成）
 
@@ -254,7 +254,7 @@
 - Access + Refresh Token 生命周期：Redis 存 SHA-256 指纹、轮换即删、登出撤销、epoch 失效
 - 账户安全（改密使全部旧 Token 失效）、RBAC、用户状态生命周期与认证强制、前后端联调
 
-**完成标准：** Token 生命周期/RBAC/账户安全回归通过；`docs/v2.0-phase3-report.md` 结论 PASS
+**完成标准：** Token 生命周期/RBAC/账户安全回归通过；`docs/v2.0-reports/v2.0-phase3-report.md` 结论 PASS
 
 ### V2.0-4 商品/SKU 体系（完成）
 
@@ -265,7 +265,7 @@
 - 库存与上下架校验链、订单按 SKU 快照与取消恢复；购物车按 SKU
 - 商品多图；前端规格选择器与管理端 SKU 编辑器
 
-**完成标准：** SKU 校验/库存/订单快照/多图测试通过；`docs/v2.0-phase4-report.md` 结论 PASS
+**完成标准：** SKU 校验/库存/订单快照/多图测试通过；`docs/v2.0-reports/v2.0-phase4-report.md` 结论 PASS
 
 ### V2.0-5 认证整合与 RBAC（完成）
 
@@ -276,7 +276,7 @@
 - 集中式可选管理员依赖 `get_optional_current_admin`，公开读/管理写权限边界清晰
 - 用户状态联动（禁用即失效）、管理端用户管理（状态/角色）、权限矩阵测试
 
-**完成标准：** 权限矩阵回归通过；`docs/v2.0-phase5-report.md` 结论 PASS
+**完成标准：** 权限矩阵回归通过；`docs/v2.0-reports/v2.0-phase5-report.md` 结论 PASS
 
 ### V2.0-6 Redis 缓存与降级（完成）
 
@@ -286,7 +286,7 @@
 - 统一 Redis 客户端（短超时快速失败）；`PRODUCT_CACHE_TTL_SECONDS` 可配置 TTL
 - 商品/分类缓存命中/过期重建/写后失效；故障降级：商品 fail-open 回退 MySQL、认证 fail-closed 503、限流 fail-open
 
-**完成标准：** 缓存命中/失效/降级测试通过；`docs/v2.0-phase6-report.md` 结论 PASS
+**完成标准：** 缓存命中/失效/降级测试通过；`docs/v2.0-reports/v2.0-phase6-report.md` 结论 PASS
 
 ### V2.0-7 测试与核心业务验证（完成）
 
@@ -297,7 +297,7 @@
 - 认证与权限：401/403/`ACCOUNT_DISABLED`/Refresh 轮换/Logout 撤销/提权防护
 - 商品与 Redis：缓存命中/失效/降级语义锁定；基础并发；前后端真实 HTTP 联调与 `npm run build`
 
-**完成标准：** pytest 全量 312 passed、`npm run build` 通过、生产代码零修改；`docs/v2.0-phase7-report.md` 结论 PASS
+**完成标准：** pytest 全量 312 passed、`npm run build` 通过、生产代码零修改；`docs/v2.0-reports/v2.0-phase7-report.md` 结论 PASS
 
 ### V2.0-8 冷启动与 Docker 环境标准化（完成）
 
@@ -326,7 +326,7 @@ Docker Compose 环境标准化（8.3）：
 
 最终验收（8.5）：
 - 环境/服务/冷启动/前后端/文档验收；pytest 全量、`npm run build`、README 十项核对
-- 更新本文件与 `docs/development/dependency-tree.md`；创建 `docs/v2.0-phase8-report.md`
+- 更新本文件与 `docs/development/dependency-tree.md`；创建 `docs/v2.0-reports/v2.0-phase8-report.md`
 
 **完成标准：**
 - 冷启动全流程一次通过，12 项基础功能 + 降级验证通过
@@ -334,7 +334,7 @@ Docker Compose 环境标准化（8.3）：
 - pytest 全量通过、`npm run build` 通过
 - README 覆盖：项目介绍、环境要求、环境变量、本地启动、Docker 启动、数据库初始化、管理员账号、前后端访问地址、常见启动问题
 - 无业务逻辑改动、无硬编码 Secret、无本机路径、无调试代码
-- 输出 `docs/v2.0-phase8-report.md`，结论 PASS；完成后停止，不自动进入下一阶段
+- 输出 `docs/v2.0-reports/v2.0-phase8-report.md`，结论 PASS；完成后停止，不自动进入下一阶段
 
 ### V2.0-9 最终工程化与交付验收（完成）
 
@@ -369,7 +369,7 @@ Docker 镜像更新与重新部署验证（9.5）：
 - pytest、`npm run build`、`docker compose ps`、`git diff --check`；最终检查无敏感信息/本机路径/调试代码/无关文件
 
 最终交付报告（9.7）：
-- 创建 `docs/v2.0-final-report.md`（20 章节，明确区分 V1.0 与 V2.0 流程编号）
+- 创建 `docs/v2.0-reports/v2.0-final-report.md`（20 章节，明确区分 V1.0 与 V2.0 流程编号）
 - 更新本文件与 `docs/development/dependency-tree.md`（新增 V2.0-9）
 
 **完成标准：**

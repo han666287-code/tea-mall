@@ -22,12 +22,17 @@ logger = logging.getLogger("uvicorn.error")
 
 
 def _client_ip(request: Request) -> str:
-    """取客户端 IP：优先 X-Forwarded-For 首值（nginx 代理场景），否则直连地址。"""
+    """取客户端 IP：优先 nginx 写入的 X-Real-IP；
+    否则取 X-Forwarded-For 末值（nginx 用 $proxy_add_x_forwarded_for 追加，末值为真实远端地址）；
+    最后回退直连地址。避免客户端伪造 XFF 首值绕过 IP 维度限流。"""
+    real = request.headers.get("x-real-ip")
+    if real and real.strip():
+        return real.strip()
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        first = forwarded.split(",", 1)[0].strip()
-        if first:
-            return first
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        if parts:
+            return parts[-1]
     if request.client is not None:
         return request.client.host
     return "unknown"

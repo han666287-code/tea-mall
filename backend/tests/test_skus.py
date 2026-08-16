@@ -224,6 +224,30 @@ def test_replace_skus_empty_rejected(admin_headers):
     assert response.json()["code"] == "PRODUCT_NEEDS_SKU"
 
 
+def test_replace_skus_with_cart_ref_rejected(admin_headers, normal_user_headers):
+    """商品存在购物车引用时禁止整体替换 SKU，避免级联删除清空用户购物车。"""
+    category_id = make_category(admin_headers)
+    product = make_product_with_skus(
+        admin_headers, category_id, [sku_payload("R1", 10, 5, "100g")]
+    )
+    sku_id = product["skus"][0]["id"]
+    assert (
+        client.post(
+            "/api/cart/items",
+            json={"sku_id": sku_id, "quantity": 1},
+            headers=normal_user_headers,
+        ).status_code
+        == 201
+    )
+    response = client.put(
+        f"/api/products/{product['id']}/skus",
+        json=[sku_payload("R2", 20, 8, "200g")],
+        headers=admin_headers,
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "SKU_IN_USE_IN_CART"
+
+
 def test_replace_skus_requires_admin(admin_headers, normal_user_headers):
     category_id = make_category(admin_headers)
     product = make_product_with_skus(admin_headers, category_id, [sku_payload("H1", 10, 1, "100g")])

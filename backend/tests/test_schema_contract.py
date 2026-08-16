@@ -134,6 +134,9 @@ def test_category_and_product_responses_match_frontend_types(admin_headers):
     ).json()
     assert set(product.keys()) == EXPECTED_KEYS["ProductResponse"]
     _assert_no_sensitive_keys(product)
+    # Decimal 序列化为字符串（与前端 TS 类型一致）
+    assert isinstance(product["price"], str)
+    assert all(isinstance(s["price"], str) for s in product["skus"])
 
     listed = client.get("/api/products").json()
     assert set(listed.keys()) == PAGE_KEYS

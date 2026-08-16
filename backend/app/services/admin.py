@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessException
 from app.models.order import Order
+from app.models.sku import Sku
 from app.models.user import User
 from app.repositories.order_repository import OrderRepository
-from app.repositories.product_repository import ProductRepository
 from app.services import cache
 from app.services import token_store
+from app.services import product as product_service
 
 # 合法状态流转：当前状态 -> 允许的新状态集合
 ALLOWED_TRANSITIONS = {
@@ -42,11 +43,18 @@ def update_order_status(db: Session, order_id: int, new_status: str) -> Order:
         )
 
     if new_status == "cancelled":
-        # 取消订单（含已支付订单）恢复库存
+        # 取消订单（含已支付订单）恢复库存：与用户取消路径一致，
+        # 恢复 SKU 库存并重算商品汇总，避免商品级库存与 SKU 库存漂移。
+        affected_product_ids: set[int] = set()
         for item in order.items:
-            product = ProductRepository(db).get_by_id(item.product_id)
-            if product is not None:
-                product.stock += item.quantity
+            affected_product_ids.add(item.product_id)
+            if item.sku_id is None:
+                # SKU 已被删除的历史订单项无法恢复库存，跳过
+                continue
+            sku = db.get(Sku, item.sku_id)
+            if sku is not None:
+                sku.stock += item.quantity
+        product_service.refresh_product_summaries(db, list(affected_product_ids))
         cache.invalidate_products()
 
     order.status = new_status

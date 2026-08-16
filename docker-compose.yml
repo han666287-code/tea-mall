@@ -5,7 +5,6 @@ services:
     build:
       context: ./frontend
     image: tea-mall-frontend:latest
-    container_name: tea-mall-frontend
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-8080}:80"
@@ -19,7 +18,6 @@ services:
     build:
       context: ./backend
     image: tea-mall-backend:latest
-    container_name: tea-mall-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
@@ -56,7 +54,6 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: tea-mall-mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
@@ -86,7 +83,6 @@ services:
 
   redis:
     image: redis:8-alpine
-    container_name: tea-mall-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"

@@ -139,7 +139,10 @@ def test_admin_cancel_paid_order_restores_stock(admin_headers, normal_user_heade
     )
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
-    assert client.get(f"/api/products/{product['id']}").json()["stock"] == 10
+    detail = client.get(f"/api/products/{product['id']}").json()
+    assert detail["stock"] == 10
+    # SKU 级库存必须同步恢复（防止商品汇总与 SKU 库存漂移）
+    assert detail["skus"][0]["stock"] == 10
 
 
 def test_admin_status_update_requires_admin(normal_user_headers):
